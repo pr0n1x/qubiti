@@ -1,11 +1,11 @@
 {
-  "name": "afontovo_ru",
-  "description": "afontovo.ru",
+  "name": "qubiti",
+  "description": "qubiti - Quick Bitrix Template Intagration",
   "license": "UNLICENSED",
   "readme": "nope",
   "repository": {
     "type": "git",
-    "url": "ssh://git@bitbucket.org:afontovo/afontovo.ru.git"
+    "url": "https://github.com/pr0n1x/qubiti.git"
   },
   "scripts": {
     "gulp": "gulp"
