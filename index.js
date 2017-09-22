@@ -276,7 +276,9 @@ function onTaskEndBrowserReload() {
 
 function getRelPathByChanged(changedFile) {
 	if(changedFile.path.indexOf(conf.curDir) !== 0) {
-		throw 'Непонятный файл пришел от watch!: "'+changedFile.path+'"';
+		throw 'Обращение к файлу лежащему за пределами собираемого шаблона!:'
+				+'\n    Путь: '+changedFile.path
+				+'\n    Во избежание неожиданного поведения сборщика операция не допускается.';
 	}
 	return substr(changedFile.path, conf.curDir.length+1);
 }
@@ -477,6 +479,31 @@ gulp.task('css-bundle', function() {
 					.pipe(conf.debug ? debug({title: 'css bundle file:'}) : gutil.noop())
 					.pipe(plumber())
 					.pipe(sourcemaps.init({loadMaps: true}))
+					.pipe(tap(function(file) {
+						// исправляем в стилях url(...)
+						var cssFile = getRelPathByChanged(file);
+						cssFile = cssFile
+							.replace(/\\/g, '/')
+							.replace(/\/\/\//g, '/')
+							.replace(/\/\//g, '/');
+						var cssSrcDir = path.dirname(cssFile).trim();
+						var dest = conf.less.main.dest.trim();
+						dest = dest
+							.replace(/\\/g, '/')
+							.replace(/\/\/\//g, '/')
+							.replace(/\/\//g, '/');
+						var stepsToTmplRoot = path.relative('/'+cssSrcDir, '/');
+						var urlPrefix = stepsToTmplRoot+'/'+cssSrcDir+'/';
+						
+						file.contents = new Buffer(
+							'/* '+cssFile+' */\n'+
+							file.contents.toString().replace(
+								/(url\(['"]?)(.*?)(['"]?\))/gim,
+								'$1'+urlPrefix+'$2$3'
+							),
+							'utf-8'
+						);
+					}))
 					.pipe(concat(bundleName+'.css'))
 					.pipe(sourcemaps.write('./'))
 					.pipe(gulp.dest(conf.less.main.dest))
