@@ -8,14 +8,13 @@
  *    Просто заново запускаем и не забиваем себе голову.
  */
 
-module.exports = function(currentTemplateDir) {
+module.exports = function(gulp, currentTemplateDir) {
 
 /** @const */
 const
 	 fs = require('fs')
 	,extend = require('extend')
 	,path = require('path')
-	,gulp = require('gulp')
 	,decodeKeypress = require('decode-keypress')
 	,del = require('del')
 	,glob = require('glob')
