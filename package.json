@@ -1,0 +1,55 @@
+{
+  "name": "afontovo_ru",
+  "description": "afontovo.ru",
+  "license": "UNLICENSED",
+  "readme": "nope",
+  "repository": {
+    "type": "git",
+    "url": "ssh://git@bitbucket.org:afontovo/afontovo.ru.git"
+  },
+  "scripts": {
+    "gulp": "gulp"
+  },
+  "dependencies": {
+    "browser-sync": "^2.18.2",
+    "convert-source-map": "^1.5.0",
+    "decode-keypress": "0.0.3",
+    "del": "^2.2.2",
+    "extend": "^3.0.0",
+    "glob-fs": "^0.1.6",
+    "gulp": "^3.9.1",
+    "gulp-autoprefixer": "^3.1.1",
+    "gulp-browserify": "^0.5.1",
+    "gulp-concat": "^2.6.1",
+    "gulp-cssnano": "^2.1.2",
+    "gulp-data": "^1.2.1",
+    "gulp-debug": "^3.0.0",
+    "gulp-filter": "^4.0.0",
+    "gulp-google-webfonts": "0.0.14",
+    "gulp-help-doc": "^1.0.7",
+    "gulp-iconfont": "^8.0.1",
+    "gulp-iconfont-css": "^2.1.0",
+    "gulp-imagemin": "^3.1.1",
+    "gulp-less": "^3.3.0",
+    "gulp-nunjucks-render": "^2.0.0",
+    "gulp-plumber": "^1.1.0",
+    "gulp-sourcemaps": "^1.9.1",
+    "gulp-tap": "^0.1.3",
+    "gulp-twig": "^0.7.0",
+    "gulp-uglify": "^2.1.2",
+    "gulp-util": "^3.0.7",
+    "gulp-watch": "^4.3.11",
+    "gulp.spritesmith": "^6.5.0",
+    "merge-stream": "^1.0.1",
+    "nunjucks": "^3.0.0",
+    "nunjucks-includeData": "0.0.9",
+    "run-sequence": "^1.2.2",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0"
+  },
+  "devDependencies": {
+    "gulp-bower-overrides": "^0.1.1",
+    "main-bower-files": "^2.13.1",
+    "node-inspector": "^0.12.10"
+  }
+}
