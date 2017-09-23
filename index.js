@@ -387,7 +387,6 @@ function lessWatcher(changedFile, target) {
 					.replace(/\\/g, '/')
 					.replace(/\/\//g, '/');
 				if(filePath.indexOf(lessDir) !== 0) {
-                    console.log(lessDir, filePath, file.path);//IMakh_del
 					throw 'lesscss file out of configured less dir: "'+filePath+'"';
 				}
 				relLessFilePath = conf.less.main.dest+'/'+substr(filePath, lessDir.length+1);
@@ -485,18 +484,22 @@ gulp.task('css-bundle', function() {
 						cssFile = cssFile
 							.replace(/\\/g, '/')
 							.replace(/\/\/\//g, '/')
-							.replace(/\/\//g, '/');
+							.replace(/\/\//g, '/')
+							.replace(/^\//, '')
+							.replace(/\/$/, '');
 						var cssSrcDir = path.dirname(cssFile).trim();
-						var dest = conf.less.main.dest.trim();
+						var dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
 						dest = dest
 							.replace(/\\/g, '/')
 							.replace(/\/\/\//g, '/')
-							.replace(/\/\//g, '/');
-						var stepsToTmplRoot = path.relative('/'+cssSrcDir, '/');
-						var urlPrefix = stepsToTmplRoot+'/'+cssSrcDir+'/';
+							.replace(/\/\//g, '/')
+							.replace(/^\//, '')
+							.replace(/\/$/, '');
+						var stepsToRootFromDest = path.relative('/'+dest, '/');
+						var urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
 						
 						file.contents = new Buffer(
-							'/* '+cssFile+' */\n'+
+							'\n/* '+cssFile+' */\n'+
 							file.contents.toString().replace(
 								/(url\(['"]?)(.*?)(['"]?\))/gim,
 								'$1'+urlPrefix+'$2$3'
