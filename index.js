@@ -1194,8 +1194,14 @@ gulp.task('watch-hotkeys', function() {
 	keyListener.on('buildHtml', function() {
 		runSequence('html');
 	});
-	keyListener.on('buildStyles', function() {
+	keyListener.on('buildAllStylesAndBundle', function() {
 		runSequence('less');
+	});
+	keyListener.on('buildAllStyles', function() {
+		runSequence('less-main', 'less-components');
+	});
+	keyListener.on('buildMainStyles', function() {
+		runSequence('less-main');
 	});
 	keyListener.on('buildComponentStyles', function() {
 		runSequence('less-components');
@@ -1303,12 +1309,20 @@ class KeyPressEmitter extends EventEmitter {
 				_this.emit('buildHtml');
 			}
 			else if( key.shift && key.name == 's' && key.sequence == 'S' ) {
-				gutil.log('Hot key [Shift+s]: Build css-bundle');
+				gutil.log('Hot key [Shift+s]: Build css-bundle (only for main styles)');
 				_this.emit('buildCssBundle');
 			}
 			else if( false === key.shift && key.name == 's' ) {
-				gutil.log('Hot key [s]: Build styles');
-				_this.emit('buildStyles');
+				gutil.log('Hot key [s]: Build main styles');
+				_this.emit('buildMainStyles');
+			}
+			else if( key.shift && key.name == 'a' && key.sequence == 'A' ) {
+				gutil.log('Hot key [Shift+s]: Build all styles and bundle (main + components)');
+				_this.emit('buildAllStylesAndBundle');
+			}
+			else if( key.name == 'a' && key.sequence == 'a' ) {
+				gutil.log('Hot key [Shift+s]: Build all styles (main + components)');
+				_this.emit('buildAllStyles');
 			}
 			else if( false === key.shift && key.name == 'l' ) {
 				gutil.log('Hot key [l]: Build component styles');
@@ -1383,39 +1397,44 @@ function showHelpHotKeys(done) {
                 которые будут корректно отрабатывать. Более того, используемая в Битриксе практика
                 именовать папки начиная с точки "." вообще исключает корректную работу.
               Потому иногда надо просто перегрузить watcher-ы и вновь добавленные файлы будут учтены.
-              
+
 "Shift + w" - Удалить watcher-ы,
                 Дабы произвести удаление или перемещение файлов и папок.
                 Это убережет процесс интерактивного режима от падения
                 в результате обращения watcher-ов к уже отсутствующим на ФС элементам.
                 Для повторного запуска нажимите "w".
-           
+
         "r" - Более масштабная перегрузка watcher-ов включающая пересборку html, less и js
               Это необходимо например потому, что тот же html зависит от состава файлов css-bundle-а.
               При создании новых компонентов и шаблонов необходимо использовать именно этот вариант.
 
 "Shift + d" - Переключить debug-mode в противоположный.
-			  Так же уравляется ключем. $ gulp some-task --debug
+              Так же уравляется ключем. $ gulp some-task --debug
 
 "Shift + p" - Переключить production-mode.
               Так же управляется ключем. $ gulp some-task --production
-           
-        "h" - Сборка njk-файлов в html. Аналог $ gulp html
-           
-        "s" - Сборка стилей. Аналог $ gulp less
 
+        "h" - Сборка njk-файлов в html. Аналог $ gulp html
+
+        "s" - Сборка стилей.
+              Аналог $ gulp less-main
 "Shift + s" - Сборка css-bundle-а.
               Аналог $ gulp css-bundle
-           
+
+        "a" - Сборка всех стилей (но без сборки bundle-а).
+              Аналог $ gulp less-main && gulp less-components
+"Shift + a" - Полный сборка всех стилей: компоненты, основные стили + bundle.
+              Аналог $ gulp less
+
         "l" - Соберет только less-файлы компонентов (component/ns/name/tpl/style.less).
-              Аналог недокументированной задачи less-components
-           
+              Аналог $ gulp less-components
+
         "j" - Полная обработка js-файлов в т.ч. создание js-bundle-ов
-           
+
         "k" - Обработка всех скриптов кроме js-bundle-ов.
               Чаще всего используется для файлов script.js в компонентах
               Аналог $ gulp js-scripts
-           
+
         "i" - Минификация картинок в папке img.src/ с перемещением в images/
               Аналог $ gulp images
 
