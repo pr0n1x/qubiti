@@ -324,7 +324,13 @@ var isArray = (function () {
  * @order {3}
  */
 var cssBundleFiles = null;
-gulp.task('less', ['less-main-bundle', 'less-components']);
+//gulp.task('less', ['less-main-bundle', 'less-components']);
+// нет смысла запускать параллельно - нет прироста в скорости
+// а последовательный запуск понятнее отлаживать при случае
+gulp.task('less', function() {
+	runSequence('less-main', 'less-components', 'css-bundle');
+});
+
 gulp.task('less-main', function() {
 	var stream = gulp.src(conf.less.main.files, {dot: true})
 		.pipe(conf.debug ? debug({title: 'main less:'}) : gutil.noop());
@@ -1194,14 +1200,17 @@ gulp.task('watch-hotkeys', function() {
 	keyListener.on('buildHtml', function() {
 		runSequence('html');
 	});
-	keyListener.on('buildAllStylesAndBundle', function() {
-		runSequence('less');
-	});
 	keyListener.on('buildAllStyles', function() {
 		runSequence('less-main', 'less-components');
 	});
 	keyListener.on('buildMainStyles', function() {
 		runSequence('less-main');
+	});
+	keyListener.on('buildMainStylesAndBundle', function() {
+		runSequence('less-main-bundle');
+	});
+	keyListener.on('buildAllStylesAndBundle', function() {
+		runSequence('less');
 	});
 	keyListener.on('buildComponentStyles', function() {
 		runSequence('less-components');
@@ -1296,36 +1305,40 @@ class KeyPressEmitter extends EventEmitter {
 				gutil.log('Hot key [F2]: Show help');
 				_this.emit('showHelp');
 			}
-			else if( key.shift && key.name == 'w' && key.sequence == 'W' ) { 
+			else if( true === key.shift && key.name == 'w' ) { 
 				gutil.log('Hot key [Shift+w]: Remove watchers');
 				_this.emit('removeWatchers');
 			}
-			else if( false === key.shift && key.name == 'w' && key.sequence == 'w' ) { 
+			else if( false === key.shift && key.name == 'w' ) { 
 				gutil.log('Hot key [w]: Reload watchers');
 				_this.emit('reloadWatchers');
 			}
-			else if( false === key.shift && key.name == 'h' && key.sequence == 'h' ) {
+			else if( false === key.shift && key.name == 'h' ) {
 				gutil.log('Hot key [h]: Build html');
 				_this.emit('buildHtml');
 			}
-			else if( key.shift && key.name == 's' && key.sequence == 'S' ) {
-				gutil.log('Hot key [Shift+s]: Build css-bundle (only for main styles)');
-				_this.emit('buildCssBundle');
+			else if( true === key.shift && key.name == 's' ) {
+				gutil.log('Hot key [Shift+s]: Build main styles and bundle');
+				_this.emit('buildMainStylesAndBundle');
 			}
 			else if( false === key.shift && key.name == 's' ) {
-				gutil.log('Hot key [s]: Build main styles');
+				gutil.log('Hot key [s]: Build main styles (w/o -bundle)');
 				_this.emit('buildMainStyles');
 			}
-			else if( key.shift && key.name == 'a' && key.sequence == 'A' ) {
-				gutil.log('Hot key [Shift+s]: Build all styles and bundle (main + components)');
+			else if( true === key.shift && key.name == 'a' ) {
+				gutil.log('Hot key [Shift+a]: Build all styles (main + bundle + components)');
 				_this.emit('buildAllStylesAndBundle');
 			}
-			else if( key.name == 'a' && key.sequence == 'a' ) {
-				gutil.log('Hot key [Shift+s]: Build all styles (main + components)');
+			else if( false === key.shift && key.name == 'a' ) {
+				gutil.log('Hot key [Shift+a]: Build all styles (main + components)');
 				_this.emit('buildAllStyles');
 			}
+			else if( true === key.shift && key.name == 'l' ) {
+				gutil.log('Hot key [l]: Build obly bundle of main styles');
+				_this.emit('buildCssBundle');
+			}
 			else if( false === key.shift && key.name == 'l' ) {
-				gutil.log('Hot key [l]: Build component styles');
+				gutil.log('Hot key [Shift+l]: Build component styles');
 				_this.emit('buildComponentStyles');
 			}
 			else if( false === key.shift && key.name == 'j' ) {
@@ -1416,10 +1429,10 @@ function showHelpHotKeys(done) {
 
         "h" - Сборка njk-файлов в html. Аналог $ gulp html
 
-        "s" - Сборка стилей.
+        "s" - Сборка основных стилей.
               Аналог $ gulp less-main
-"Shift + s" - Сборка css-bundle-а.
-              Аналог $ gulp css-bundle
+"Shift + s" - Сборка основных стилей и их bundle-а
+              Аналог $ gulp less-main-bundle
 
         "a" - Сборка всех стилей (но без сборки bundle-а).
               Аналог $ gulp less-main && gulp less-components
@@ -1428,6 +1441,9 @@ function showHelpHotKeys(done) {
 
         "l" - Соберет только less-файлы компонентов (component/ns/name/tpl/style.less).
               Аналог $ gulp less-components
+
+"Shift + l" - Сборка только css-bundle-а.
+              Аналог $ gulp css-bundle
 
         "j" - Полная обработка js-файлов в т.ч. создание js-bundle-ов
 
