@@ -215,8 +215,8 @@ var conf = {
 };
 
 extend(true, conf, require(conf.curDir+'/gulpfile.config.js'));
-conf.debug = gutil.env.debug ? true : conf.debug;
-conf.production = gutil.env.production ? true : conf.debug;
+conf.debug = !!(gutil.env.debug ? true : conf.debug);
+conf.production = !!(gutil.env.production ? true : conf.production);
 
 function replacePlaceHolder(object, replace, callcount) {
 	if(typeof(callcount) == 'undefined') callcount = 1;
@@ -327,8 +327,8 @@ var cssBundleFiles = null;
 //gulp.task('less', ['less-main-bundle', 'less-components']);
 // нет смысла запускать параллельно - нет прироста в скорости
 // а последовательный запуск понятнее отлаживать при случае
-gulp.task('less', function() {
-	runSequence('less-main', 'less-components', 'css-bundle');
+gulp.task('less', function(done) {
+	runSequence('less-main', 'less-components', 'css-bundle', done);
 });
 
 gulp.task('less-main', function() {
@@ -337,9 +337,9 @@ gulp.task('less-main', function() {
 	lessCommonPipe(stream, conf.less.main.dest);
 	return stream;
 });
-gulp.task('less-main-bundle', function() {
-	runSequence('less-main', 'css-bundle');
-})
+gulp.task('less-main-bundle', function(done) {
+	runSequence('less-main', 'css-bundle', done);
+});
 gulp.task('less-components', function() {
 	var  stream =  merge();
 	gulp.src(conf.less.components.files, {dot: true, base: '.'})
@@ -405,7 +405,7 @@ function lessWatcher(changedFile, target) {
 				) {
 					runSequence('css-bundle');
 				}
-			}))
+			}));
 			dest = conf.less.main.dest;
 			if(conf.debug) gutil.log('less watcher: '+gutil.colors.blue(file));
 			break;
@@ -554,12 +554,11 @@ gulp.task('html', function(done) {
 	if( null === cssBundleFiles ) {
 		// Если у нас нет данных о файлах css-bundle-а, то сначала запустим
 		// сборку этих данных и получим эти данные
-		runSequence('css-bundle', 'html-nunjucks');
+		runSequence('css-bundle', 'html-nunjucks', done);
 	}
 	else {
-		runSequence('html-nunjucks');
+		runSequence('html-nunjucks', done);
 	}
-	done();
 });
 gulp.task('html-nunjucks', function() {
 	nunjucksRender.nunjucks.configure();
@@ -1121,15 +1120,23 @@ gulp.task('bower', function() {
 
 
 /**
- * Собрать проект
+ * Собрать проект. Собирает стили, js-файлы и html-файлы.
+ * Спрайты, загрузка шрифтов, созание иконочных шрифтов этой задачей на затрагиваются и должны быть запущены явно.
  * @task {build}
  * @order {1}
  */
-gulp.task('build', function() {
-	// less и js параллельно, а после html,
-	// поскольку надо что бы был заполнена переменная
-	// с именами (путями) файлов css-bundle-а
-	runSequence(['less', 'js'], 'html');
+gulp.task('build', function(done) {
+	// Все последовательно, параллельность тут все равно не дает скорости
+	runSequence(
+		'less-main',
+		'css-bundle',
+		'less-components',
+		'js-bundle',
+		'js-scripts',
+		'js-vendor-bundle',
+		'html-nunjucks',
+		done
+	);
 });
 
 /**
