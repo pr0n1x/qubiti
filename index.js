@@ -365,6 +365,7 @@ function lessCommonPipe(stream, dest) {
 		.pipe(rename({extname: '.min.css'}))
 		.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
 		.pipe(sourcemaps.write('./'))
+		.pipe(conf.debug ? debug({title: 'common less:'}) : gutil.noop())
 		.pipe(gulp.dest(dest))
 		.pipe(browserSync.stream())
 		.on('end', onTaskEnd)
