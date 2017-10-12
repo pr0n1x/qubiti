@@ -1232,6 +1232,12 @@ gulp.task('watch-hotkeys', function() {
 	keyListener.on('buildJsScripts', function() {
 		runSequence('js-scripts');
 	});
+	keyListener.on('buildJsBundle', function() {
+		runSequence('js-bundle');
+	});
+	keyListener.on('buildJsVendorBundle', function() {
+		runSequence('js-vendor-bundle');
+	});
 	keyListener.on('optimizeImages', function() {
 		runSequence('images');
 	});
@@ -1350,12 +1356,20 @@ class KeyPressEmitter extends EventEmitter {
 				_this.emit('buildComponentStyles');
 			}
 			else if( false === key.shift && key.name == 'j' ) {
-				gutil.log('Hot key [j]: Build js');
-				_this.emit('buildJs');
+				gutil.log('Hot key [j]: Build js-bundle');
+				_this.emit('buildJsBundle');
+			}
+			else if( true === key.shift && key.name == 'j' ) {
+				gutil.log('Hot key [Shift+j]: Build js-vendor-bundle');
+				_this.emit('buildJsVendorBundle');
 			}
 			else if( false === key.shift && key.name == 'k' ) {
-				gutil.log('Hot key [k]: Build js (w/o bundles)');
+				gutil.log('Hot key [k]: Build js-scripts (w/o bundles)');
 				_this.emit('buildJsScripts');
+			}
+			else if( true === key.shift && key.name == 'k' ) {
+				gutil.log('Hot key [Shift+k]: Build js-scripts and all bundles');
+				_this.emit('buildJs');
 			}
 			else if( key.shift && key.name == 'i' && key.sequence == 'I' ) {
 				gutil.log('Hot key [Shift+i]: Build sprites');
@@ -1453,11 +1467,20 @@ function showHelpHotKeys(done) {
 "Shift + l" - Сборка только css-bundle-а.
               Аналог $ gulp css-bundle
 
-        "j" - Полная обработка js-файлов в т.ч. создание js-bundle-ов
+        "j" - Сборка js-bundle(ов)
+              Аналог $ gulp js-bundle
+              из js/src/_<bundle_name>.js -> js/bundle.<bundle_name[.min].js
+              Как bundle один js/src/_index.js -> js/bundle.index[.min].js
+              <bundle_name> не может значение "vendor"
+"Shift + j" - Сборка js-vendor-bundle(а)
+              Аналог $ gulp js-vendor-bundle
+              из js/vendor/_bundle.js -> js/bundle.vendor[.min].js
 
         "k" - Обработка всех скриптов кроме js-bundle-ов.
               Чаще всего используется для файлов script.js в компонентах
               Аналог $ gulp js-scripts
+"Shift + k" - Полная обработка js-файлов в т.ч. создание js-bundle-ов
+              Аналог $ gulp js
 
         "i" - Минификация картинок в папке img.src/ с перемещением в images/
               Аналог $ gulp images
