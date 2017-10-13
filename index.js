@@ -164,19 +164,32 @@ var conf = {
 		}
 		,scripts: [
 			'js/**/*.js'
+
+			// исключаем исходники для require с прозвольными именами, но с префиксом "_"
+			,'!js/**/_*.js'
+			,'!js/**/_*/*.js'
+
+			// исключаем исходники для require
 			,'!js/src/**/*.js'
-			,'!js/bundle.*.js'
-			,'!js/**/*{.,-}min.js'
 			,'!js/vendor/**/*.js'
-			
+
+			// Исключаем уже собранные файлы
+			,'!js/**/*{.,-}min.js'
+			,'!js/bundle.*.js'
+
+			// Собираем компонентныt js-aфайлы
 			,'components/*/*/**.js'
 			,'components/*/*/{*,.*}/**/*.js'
 			,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.js'
 
+			// Исключаем уже собранные файлы и всякое для require
 			,'!components/*/*/{*,.*}/*{.,-}min.js'
 			,'!components/*/*/{*,.*}/*/*/{*,.*}/*{.,-}min.js'
 			,'!components/*/*/{*,.*}/vendor/**/*.js'
 			,'!components/*/*/{*,.*}/*/*/{*,.*}/vendor/**/*.js'
+			,'!components/*/*/{*,.*}/_*.js'
+			,'!components/*/*/{*,.*}/_*/*.js'
+			,'!components/*/*/{*,.*}/*/*/{*,.*}/_*/*.js'
 		]
 	}
 	,images: {
