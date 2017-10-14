@@ -1183,12 +1183,12 @@ gulp.task('build', function(done) {
  */
 var watchers = [];
 const WATCH_OPTIONS = {cwd: './'};
-gulp.task('watch', function() {
+gulp.task('watch', function(done) {
 	if( watchers.length > 0 ) {
-		runSequence('remove-watchers', 'css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys');
+		runSequence('remove-watchers', 'css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
 	}
 	else {
-		runSequence('css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys');
+		runSequence('css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
 	}
 });
 gulp.task('add-watchers', function (done) {
