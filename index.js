@@ -330,6 +330,25 @@ var isArray = (function () {
 	};
 }());
 
+var browserSyncReloadIsActive = true;
+function switchBroserSync(state) {
+	if( state instanceof Boolean ) {
+		browserSyncReloadIsActive = state;
+	}
+	else {
+		browserSyncReloadIsActive = !browserSyncReloadIsActive;
+	}
+}
+function browserSyncStream() {
+	return browserSyncReloadIsActive
+		? browserSync.stream()
+		: gutil.noop()
+}
+function browserSyncReload() {
+	if( browserSyncReloadIsActive ) {
+		browserSync.reload();
+	}
+}
 
 /**
  * Сборка less-файлов
@@ -374,13 +393,13 @@ function lessCommonPipe(stream, dest) {
 		.on('error', swallowError)
 		//.pipe(autoprefixer())
 		.pipe(gulp.dest(dest))
-		.pipe(browserSync.stream())
+		.pipe(browserSyncStream())
 		.pipe(rename({extname: '.min.css'}))
 		.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
 		.pipe(sourcemaps.write('./'))
 		.pipe(conf.debug ? debug({title: 'common less:'}) : gutil.noop())
 		.pipe(gulp.dest(dest))
-		.pipe(browserSync.stream())
+		.pipe(browserSyncStream())
 		.on('end', onTaskEnd)
 	;
 }
@@ -522,7 +541,7 @@ gulp.task('css-bundle', function() {
 	}));
 	
 	stream
-		.pipe(browserSync.stream())
+		.pipe(browserSyncStream())
 		.on('end', onTaskEnd)
 	return stream;
 });
@@ -653,7 +672,7 @@ gulp.task('--html-nunjucks', function() {
 		}))
 		.pipe(gulp.dest(conf.html.dest))
 		.on('end', onTaskEnd)
-		.on('end', function() { browserSync.reload(); })
+		.on('end', function() { browserSyncReload(); })
 	;
 	
 });
@@ -954,7 +973,7 @@ function jsScriptsWatcher(changedFile) {
 		.pipe(rename({extname: '.min.js'}))
 		.pipe(sourcemaps.write('./'))
 		.pipe(gulp.dest(dest))
-		.pipe(browserSync.stream())
+		.pipe(browserSyncStream())
 		.on('end', onTaskEnd)
 }
 
@@ -1010,7 +1029,7 @@ gulp.task('images', function() {
 		.pipe(imagemin())
 		.pipe(gulp.dest(conf.images.dest))
 		.on('end', onTaskEnd)
-		.pipe(browserSync.stream());
+		.pipe(browserSyncStream());
 });
 
 /**
@@ -1099,7 +1118,7 @@ gulp.task('sprites', function(done) {
 			.pipe(filterLess)
 			.pipe(gulp.dest(conf.sprites.dest.less))
 			.pipe(filterLess.restore)
-			.pipe(browserSync.stream())
+			.pipe(browserSyncStream())
 		;
 		resultStream.add(spriteBatch.stream);
 	});
@@ -1223,6 +1242,15 @@ gulp.task('remove-watchers', function(done) {
  */
 gulp.task('watch-hotkeys', function() {
 	var keyListener = new KeyPressEmitter();
+	
+	function beginInteractiveModeTaskAction() {
+		switchBroserSync(false);
+	}
+	function finishInteractiveModeTaskAction() {
+		switchBroserSync(true);
+		browserSyncReload();
+	}
+	
 	keyListener.on('showHotKeysHelp', function() {
 		runSequence('help-hk');
 	});
@@ -1241,49 +1269,64 @@ gulp.task('watch-hotkeys', function() {
 		runSequence('remove-watchers');
 	});
 	keyListener.on('buildHtml', function() {
-		runSequence('html');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'html', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildAllStyles', function() {
-		runSequence('less-main', 'less-components');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'less-main', 'less-components', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildMainStyles', function() {
-		runSequence('less-main');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'less-main', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildMainStylesAndBundle', function() {
-		runSequence('less-main-bundle');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'less-main-bundle', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildAllStylesAndBundle', function() {
-		runSequence('less');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'less', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildComponentStyles', function() {
-		runSequence('less-components');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'less-components', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildCssBundle', function() {
-		runSequence('css-bundle');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'css-bundle', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildJs', function() {
-		runSequence('js');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'js', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildJsScripts', function() {
-		runSequence('js-scripts');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'js-scripts', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildJsBundle', function() {
-		runSequence('js-bundle');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'js-bundle', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildJsVendorBundle', function() {
-		runSequence('js-vendor-bundle');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'js-vendor-bundle', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('optimizeImages', function() {
-		runSequence('images');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'images', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildSprites', function() {
-		runSequence('sprites');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'sprites', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('buildCsvIconsFont', function() {
-		runSequence('svg-icons-font');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'svg-icons-font', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('downloadGoogleWebFonts', function() {
-		runSequence('google-web-fonts');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'google-web-fonts', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('switchDebugMode', function() {
 		conf.debug = !conf.debug;
@@ -1292,13 +1335,16 @@ gulp.task('watch-hotkeys', function() {
 	keyListener.on('switchProductionMode', function() {
 		conf.production = !conf.production;
 		gutil.log(gutil.colors.blue('Production mode switched to "'+(conf.production?'true':'false')+'"'))
-		runSequence('html');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'html', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('reloadAll', function() {
-		runSequence('remove-watchers', 'less-components', 'js-scripts', 'html', 'add-watchers');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'less-components', 'js-scripts', 'html', 'add-watchers', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.on('build', function() {
-		runSequence('build');
+		beginInteractiveModeTaskAction();
+		runSequence('remove-watchers', 'build', 'add-watchers', finishInteractiveModeTaskAction);
 	});
 	keyListener.start();
 });
