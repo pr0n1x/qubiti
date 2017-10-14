@@ -321,9 +321,6 @@ if( typeof(gutil.env['dev-no-build-css-bundle-file']) != 'undefined' ) {
 	conf.dev_mode.no_build_css_bundle_file = parseArgAsBool(gutil.env['dev-no-build-css-bundle-file']);
 }
 
-console.log(gutil.env, conf.assets, conf.html.bx_component);
-return;
-
 function parseArgAsBool(value) {
 	if( typeof(value) == 'string' ) {
 		value = value.trim().toUpperCase();
