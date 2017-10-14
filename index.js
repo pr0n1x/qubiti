@@ -57,6 +57,10 @@ var conf = {
 	curDir: currentTemplateDir
 	,debug: false
 	,production: false
+	,assets: {
+		min_css: false,
+		min_js: false
+	}
 	,dev_mode: {
 		// В dev_mode (conf.production == false)
 		// вместо bundle.css файла
@@ -100,8 +104,8 @@ var conf = {
 		]
 		,dest: 'html'
 		,bx_component: {
-			 use_minified_js: !!gutil.env.production
-			,use_minified_css: !!gutil.env.production
+			 use_minified_js: false
+			,use_minified_css: false
 			,debug_assets: !!gutil.env['debug-bx-assets']
 		}
 	}
@@ -290,9 +294,51 @@ replacePlaceHolder(conf.less.components.files, {cond: /@styleName/, value: conf.
 
 conf.debug = !!(gutil.env.debug ? true : conf.debug);
 conf.production = !!(gutil.env.production ? true : conf.production);
-conf.dev_mode.no_bsync_css_bundle_file = !!(gutil.env['dev-no-bsync-css-bundle-file'] ? true : gutil.env['dev-no-bsync-css-bundle-file']);
-conf.dev_mode.no_build_css_bundle_file = !!(gutil.env['dev-no-build-css-bundle-file'] ? true : gutil.env['dev-no-build-css-bundle-file']);
 
+if( conf.production ) {
+	conf.assets.min_css = true;
+	conf.assets.min_js = true;
+}
+
+if( typeof(gutil.env['assets-min']) != 'undefined' ) {
+	conf.assets.min_css = parseArgAsBool(gutil.env['assets-min']);
+	conf.assets.min_js = parseArgAsBool(gutil.env['assets-min']);
+}
+if( typeof(gutil.env['assets-min-css']) != 'undefined' ) {
+	conf.assets.min_css = parseArgAsBool(gutil.env['assets-min-css']);
+}
+if( typeof(gutil.env['assets-min-js']) != 'undefined' ) {
+	conf.assets.min_js = parseArgAsBool(gutil.env['assets-min-js']);
+}
+
+conf.html.bx_component.use_minified_css = conf.assets.min_css;
+conf.html.bx_component.use_minified_js = conf.assets.min_js;
+
+if( typeof(gutil.env['dev-no-bsync-css-bundle-file']) != 'undefined' ) {
+	conf.dev_mode.no_bsync_css_bundle_file = parseArgAsBool(gutil.env['dev-no-bsync-css-bundle-file']);
+}
+if( typeof(gutil.env['dev-no-build-css-bundle-file']) != 'undefined' ) {
+	conf.dev_mode.no_build_css_bundle_file = parseArgAsBool(gutil.env['dev-no-build-css-bundle-file']);
+}
+
+console.log(gutil.env, conf.assets, conf.html.bx_component);
+return;
+
+function parseArgAsBool(value) {
+	if( typeof(value) == 'string' ) {
+		value = value.trim().toUpperCase();
+		switch(value) {
+			case 'N':
+			case 'NO':
+			case 'FALSE':
+			case 'OFF':
+			case '0':
+				return false;
+		}
+		return true;
+	}
+	return !!value;
+}
 
 // "Проглатывает" ошибку, но выводит в терминал
 function swallowError(error) {
