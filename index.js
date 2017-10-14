@@ -541,22 +541,22 @@ gulp.task('css-bundle', function() {
 	
 	stream.add(parseCssBundleImportList(function(bundleName, relBundleFilePath, cssBundleFiles, cssBundleFilesImport) {
 		
-		if( cssBundleFilesImport.length > 0 ) {
-			stream.add(gulp.src(relBundleFilePath, {dot: true})
-				.pipe(rename(bundleName+'-import.css'))
-				.pipe(tap(function(file) {
-					file.contents = new Buffer(cssBundleFilesImport, 'utf-8');
-				}))
-				.pipe(gulp.dest(conf.less.main.dest))
-				// Уведомляем браузер если изменился bundle-import.css
-				.pipe(browserSyncStream())
-			);
-		}
-		
 		if( conf.production
 			|| !isInteractiveMode
 			|| !conf.dev_mode.no_build_css_bundle_file
 		) {
+			if( cssBundleFilesImport.length > 0 ) {
+				stream.add(gulp.src(relBundleFilePath, {dot: true})
+					.pipe(rename(bundleName+'-import.css'))
+					.pipe(tap(function(file) {
+						file.contents = new Buffer(cssBundleFilesImport, 'utf-8');
+					}))
+					.pipe(gulp.dest(conf.less.main.dest))
+					// Уведомляем браузер если изменился bundle-import.css
+					.pipe(browserSyncStream())
+				);
+			}
+			
 			if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
 				var bundleStream = gulp.src(cssBundleFiles, {dot: true})
 					.pipe(conf.debug ? debug({title: 'css bundle file:'}) : gutil.noop())
