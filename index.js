@@ -50,12 +50,29 @@ const
 
 //noinspection JSCheckFunctionSignatures
 var browserSync = require('browser-sync').create();
+var isInteractiveMode = false;
 
 var conf = {
 	//noinspection JSUnresolvedVariable
 	curDir: currentTemplateDir
 	,debug: false
 	,production: false
+	,dev_mode: {
+		// В dev_mode (conf.production == false)
+		// вместо bundle.css файла
+		// используются отдельные файлы css-bundle-а
+		// подключенные непосредственно в html-е.
+		// Соответственно:
+		
+		// можно не синхронизировать в browser-sync
+		// файл bundle[.min].css
+		// опция в консоли: --dev-no-bsync-css-bundle-file
+		no_bsync_css_bundle_file: false,
+		// Вообще не собирать файл bundle[.min].css
+		// Но после окончания работ надо не забывать собрать бандл руками
+		// опция в консоли: --dev-no-build-css-bundle-file
+		no_build_css_bundle_file: false
+	}
 	,browserSync: {
 		server: './'
 		,index: '/index.html'
@@ -83,8 +100,8 @@ var conf = {
 		]
 		,dest: 'html'
 		,bx_component: {
-			 use_minified_js: true //!!gutil.env.production
-			,use_minified_css: true //!!gutil.env.production
+			 use_minified_js: !!gutil.env.production
+			,use_minified_css: !!gutil.env.production
 			,debug_assets: !!gutil.env['debug-bx-assets']
 		}
 	}
@@ -228,8 +245,6 @@ var conf = {
 };
 
 extend(true, conf, require(conf.curDir+'/gulpfile.config.js'));
-conf.debug = !!(gutil.env.debug ? true : conf.debug);
-conf.production = !!(gutil.env.production ? true : conf.production);
 
 function replacePlaceHolder(object, replace, callcount) {
 	if(typeof(callcount) == 'undefined') callcount = 1;
@@ -271,6 +286,13 @@ function replacePlaceHolder(object, replace, callcount) {
 replacePlaceHolder(conf.html, {cond: /@base/, value: conf.html.base});
 replacePlaceHolder(conf.less.main, {cond: /@base/, value: conf.less.main.base});
 replacePlaceHolder(conf.less.components.files, {cond: /@styleName/, value: conf.less.components.styleName});
+
+
+conf.debug = !!(gutil.env.debug ? true : conf.debug);
+conf.production = !!(gutil.env.production ? true : conf.production);
+conf.dev_mode.no_bsync_css_bundle_file = !!(gutil.env['dev-no-bsync-css-bundle-file'] ? true : gutil.env['dev-no-bsync-css-bundle-file']);
+conf.dev_mode.no_build_css_bundle_file = !!(gutil.env['dev-no-build-css-bundle-file'] ? true : gutil.env['dev-no-build-css-bundle-file']);
+
 
 // "Проглатывает" ошибку, но выводит в терминал
 function swallowError(error) {
@@ -483,66 +505,89 @@ gulp.task('css-bundle', function() {
 					file.contents = new Buffer(cssBundleFilesImport, 'utf-8');
 				}))
 				.pipe(gulp.dest(conf.less.main.dest))
+				// Уведомляем браузер если изменился bundle-import.css
+				.pipe(browserSyncStream())
 			);
 		}
 		
-		if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
-			stream.add(gulp.src(cssBundleFiles, {dot: true})
-				.pipe(conf.debug ? debug({title: 'css bundle file:'}) : gutil.noop())
-				.pipe(plumber())
-				.pipe(sourcemaps.init({loadMaps: true}))
-				.pipe(tap(function(file) {
-					// исправляем в стилях url(...)
-					var cssFile = getRelPathByChanged(file);
-					cssFile = cssFile
-						.replace(/\\/g, '/')
-						.replace(/\/\/\//g, '/')
-						.replace(/\/\//g, '/')
-						.replace(/^\//, '')
-						.replace(/\/$/, '');
-					var cssSrcDir = path.dirname(cssFile).trim();
-					var dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
-					dest = dest
-						.replace(/\\/g, '/')
-						.replace(/\/\/\//g, '/')
-						.replace(/\/\//g, '/')
-						.replace(/^\//, '')
-						.replace(/\/$/, '');
-					var stepsToRootFromDest = path.relative('/'+dest, '/');
-					var urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
-					
-					file.contents = new Buffer(
-						'\n/* '+cssFile+' */\n'+
-						file.contents.toString().replace(
-							/(url\(['"]?)(.*?)(['"]?\))/gim,
-							'$1'+urlPrefix+'$2$3'
-						),
-						'utf-8'
-					);
-				}))
-				.pipe(concat(bundleName+'.css'))
-				.pipe(sourcemaps.write('./'))
-				.pipe(gulp.dest(conf.less.main.dest))
-				.pipe(tap(function(file) {
-					var relFilePath = getRelPathByChanged(file);
-					if(path.extname(relFilePath) === '.css') {
-						var dest = path.dirname(relFilePath);
-						stream.add(gulp.src(relFilePath)
-							.pipe(sourcemaps.init({loadMaps: true}))
-							.pipe(rename({extname: '.min.css'}))
-							.pipe(cssnano({zindex: false}))
-							.pipe(sourcemaps.write('./'))
-							.pipe(gulp.dest(dest))
+		if( conf.production
+			|| !conf.dev_mode.no_build_css_bundle_file
+		) {
+			if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
+				var bundleStream = gulp.src(cssBundleFiles, {dot: true})
+					.pipe(conf.debug ? debug({title: 'css bundle file:'}) : gutil.noop())
+					.pipe(plumber())
+					.pipe(sourcemaps.init({loadMaps: true}))
+					.pipe(tap(function(file) {
+						// исправляем в стилях url(...)
+						var cssFile = getRelPathByChanged(file);
+						cssFile = cssFile
+							.replace(/\\/g, '/')
+							.replace(/\/\/\//g, '/')
+							.replace(/\/\//g, '/')
+							.replace(/^\//, '')
+							.replace(/\/$/, '');
+						var cssSrcDir = path.dirname(cssFile).trim();
+						var dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
+						dest = dest
+							.replace(/\\/g, '/')
+							.replace(/\/\/\//g, '/')
+							.replace(/\/\//g, '/')
+							.replace(/^\//, '')
+							.replace(/\/$/, '');
+						var stepsToRootFromDest = path.relative('/'+dest, '/');
+						var urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
+						
+						file.contents = new Buffer(
+							'\n/* '+cssFile+' */\n'+
+							file.contents.toString().replace(
+								/(url\(['"]?)(.*?)(['"]?\))/gim,
+								'$1'+urlPrefix+'$2$3'
+							),
+							'utf-8'
 						);
-					}
-				}))
-			);
+					}));
+					bundleStream
+					.pipe(concat(bundleName+'.css'))
+					.pipe(sourcemaps.write('./'))
+					.pipe(gulp.dest(conf.less.main.dest))
+					.pipe(tap(function(file) {
+						var relFilePath = getRelPathByChanged(file);
+						if(path.extname(relFilePath) === '.css') {
+							var dest = path.dirname(relFilePath);
+							stream.add(gulp.src(relFilePath)
+								.pipe(sourcemaps.init({loadMaps: true}))
+								.pipe(rename({extname: '.min.css'}))
+								.pipe(cssnano({zindex: false}))
+								// Уведосляем браузер о том, что изменился собранный
+								// файд css-bundle-а, но только в том случае, если
+								// сборка работает в production-режиме
+								// так как в ином случае в html-е подключены
+								.pipe(
+									( conf.production
+										|| !conf.dev_mode.no_bsync_css_bundle_file
+									)
+									? browserSyncStream()
+									: (conf.debug
+										? debug({title: 'ignoring browser-sync update of css-bundle:'})
+										: gutil.noop()
+									)
+								)
+								.pipe(sourcemaps.write('./'))
+								.pipe(gulp.dest(dest))
+							);
+						}
+					}));
+				
+				stream.add(bundleStream);
+			}
+		}
+		else if(conf.debug) {
+			gutil.log('ignoring building of css-bundle: '+gutil.colors.blue(bundleName+'.css')+gutil.colors.gray(' (--dev-no-build-css-bundle-file)'));
 		}
 	}));
 	
-	stream
-		.pipe(browserSyncStream())
-		.on('end', onTaskEnd)
+	stream.on('end', onTaskEnd)
 	return stream;
 });
 
@@ -1203,6 +1248,7 @@ gulp.task('build', function(done) {
 var watchers = [];
 const WATCH_OPTIONS = {cwd: './'};
 gulp.task('watch', function(done) {
+	isInteractiveMode = true;
 	if( watchers.length > 0 ) {
 		runSequence('remove-watchers', 'css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
 	}
@@ -1241,6 +1287,7 @@ gulp.task('remove-watchers', function(done) {
  * @order {16}
  */
 gulp.task('watch-hotkeys', function() {
+	isInteractiveMode = true;
 	var keyListener = new KeyPressEmitter();
 	
 	function beginInteractiveModeTaskAction() {
@@ -1349,6 +1396,7 @@ gulp.task('watch-hotkeys', function() {
 	keyListener.start();
 });
 gulp.task('keys-debug', function() {
+	isInteractiveMode = true;
 	var keyListener = new KeyPressEmitter();
 	keyListener.debug = true;
 	keyListener.start();
