@@ -580,11 +580,11 @@ gulp.task('html', function(done) {
 	if( null === cssBundleFiles ) {
 		// Если у нас нет данных о файлах css-bundle-а, то сначала запустим
 		// сборку этих данных и получим эти данные
-		runSequence('css-bundle', '--html-nunjucks', done);
+		//runSequence('css-bundle', '--html-nunjucks', done);
 		
 		// Для сборки надо знать только имена css-файлов,
 		// совсем не обязательно собирать bundle, ибо долго
-		//runSequence('css-bundle-parse-imports-list', '--html-nunjucks', done);
+		runSequence('css-bundle-parse-imports-list', '--html-nunjucks', done);
 	}
 	else {
 		runSequence('--html-nunjucks', done);
