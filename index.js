@@ -511,6 +511,7 @@ gulp.task('css-bundle', function() {
 		}
 		
 		if( conf.production
+			|| !isInteractiveMode
 			|| !conf.dev_mode.no_build_css_bundle_file
 		) {
 			if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
@@ -565,6 +566,7 @@ gulp.task('css-bundle', function() {
 								// так как в ином случае в html-е подключены
 								.pipe(
 									( conf.production
+										|| !isInteractiveMode
 										|| !conf.dev_mode.no_bsync_css_bundle_file
 									)
 									? browserSyncStream()
@@ -1291,9 +1293,11 @@ gulp.task('watch-hotkeys', function() {
 	var keyListener = new KeyPressEmitter();
 	
 	function beginInteractiveModeTaskAction() {
+		isInteractiveMode = false;
 		switchBroserSync(false);
 	}
 	function finishInteractiveModeTaskAction() {
+		isInteractiveMode = true;
 		switchBroserSync(true);
 		browserSyncReload();
 	}
