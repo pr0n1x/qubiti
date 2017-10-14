@@ -454,9 +454,87 @@ function lessWatcher(changedFile, target) {
  */
 gulp.task('css-bundle', function() {
 	var stream = new merge();
+	
+	stream.add(parseCssBundleImportList(function(bundleName, relBundleFilePath, cssBundleFiles, cssBundleFilesImport) {
+		
+		if( cssBundleFilesImport.length > 0 ) {
+			stream.add(gulp.src(relBundleFilePath, {dot: true})
+				.pipe(rename(bundleName+'-import.css'))
+				.pipe(tap(function(file) {
+					file.contents = new Buffer(cssBundleFilesImport, 'utf-8');
+				}))
+				.pipe(gulp.dest(conf.less.main.dest))
+			);
+		}
+		
+		if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
+			stream.add(gulp.src(cssBundleFiles, {dot: true})
+				.pipe(conf.debug ? debug({title: 'css bundle file:'}) : gutil.noop())
+				.pipe(plumber())
+				.pipe(sourcemaps.init({loadMaps: true}))
+				.pipe(tap(function(file) {
+					// исправляем в стилях url(...)
+					var cssFile = getRelPathByChanged(file);
+					cssFile = cssFile
+						.replace(/\\/g, '/')
+						.replace(/\/\/\//g, '/')
+						.replace(/\/\//g, '/')
+						.replace(/^\//, '')
+						.replace(/\/$/, '');
+					var cssSrcDir = path.dirname(cssFile).trim();
+					var dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
+					dest = dest
+						.replace(/\\/g, '/')
+						.replace(/\/\/\//g, '/')
+						.replace(/\/\//g, '/')
+						.replace(/^\//, '')
+						.replace(/\/$/, '');
+					var stepsToRootFromDest = path.relative('/'+dest, '/');
+					var urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
+					
+					file.contents = new Buffer(
+						'\n/* '+cssFile+' */\n'+
+						file.contents.toString().replace(
+							/(url\(['"]?)(.*?)(['"]?\))/gim,
+							'$1'+urlPrefix+'$2$3'
+						),
+						'utf-8'
+					);
+				}))
+				.pipe(concat(bundleName+'.css'))
+				.pipe(sourcemaps.write('./'))
+				.pipe(gulp.dest(conf.less.main.dest))
+				.pipe(tap(function(file) {
+					var relFilePath = getRelPathByChanged(file);
+					if(path.extname(relFilePath) === '.css') {
+						var dest = path.dirname(relFilePath);
+						stream.add(gulp.src(relFilePath)
+							.pipe(sourcemaps.init({loadMaps: true}))
+							.pipe(rename({extname: '.min.css'}))
+							.pipe(cssnano({zindex: false}))
+							.pipe(sourcemaps.write('./'))
+							.pipe(gulp.dest(dest))
+						);
+					}
+				}))
+			);
+		}
+	}));
+	
+	stream
+		.pipe(browserSync.stream())
+		.on('end', onTaskEnd)
+	return stream;
+});
+
+gulp.task('css-bundle-parse-imports-list', function(done) {
+	return parseCssBundleImportList();
+});
+
+function parseCssBundleImportList(afterParseCallback) {
 	cssBundleFiles = [];
 	var cssBundleFilesImport = '';
-	stream.add(gulp.src(conf.less.main.bundle)
+	return gulp.src(conf.less.main.bundle)
 		.pipe(conf.debug ? debug({title: 'css bundle:'}) : gutil.noop())
 		.pipe(tap(function(file) {
 			var bundleName = path.basename(file.path)
@@ -483,77 +561,11 @@ gulp.task('css-bundle', function() {
 				}
 			}
 
-			if( cssBundleFilesImport.length > 0 ) {
-				stream.add(gulp.src(relBundleFilePath, {dot: true})
-					.pipe(rename(bundleName+'-import.css'))
-					.pipe(tap(function(file) {
-						file.contents = new Buffer(cssBundleFilesImport, 'utf-8');
-					}))
-					.pipe(gulp.dest(conf.less.main.dest))
-				);
+			if( typeof(afterParseCallback) == 'function' ) {
+				afterParseCallback.call(this, bundleName, relBundleFilePath, cssBundleFiles, cssBundleFilesImport);
 			}
-
-			if(cssBundleFiles.length > 0) {
-				stream.add(gulp.src(cssBundleFiles, {dot: true})
-					.pipe(conf.debug ? debug({title: 'css bundle file:'}) : gutil.noop())
-					.pipe(plumber())
-					.pipe(sourcemaps.init({loadMaps: true}))
-					.pipe(tap(function(file) {
-						// исправляем в стилях url(...)
-						var cssFile = getRelPathByChanged(file);
-						cssFile = cssFile
-							.replace(/\\/g, '/')
-							.replace(/\/\/\//g, '/')
-							.replace(/\/\//g, '/')
-							.replace(/^\//, '')
-							.replace(/\/$/, '');
-						var cssSrcDir = path.dirname(cssFile).trim();
-						var dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
-						dest = dest
-							.replace(/\\/g, '/')
-							.replace(/\/\/\//g, '/')
-							.replace(/\/\//g, '/')
-							.replace(/^\//, '')
-							.replace(/\/$/, '');
-						var stepsToRootFromDest = path.relative('/'+dest, '/');
-						var urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
-						
-						file.contents = new Buffer(
-							'\n/* '+cssFile+' */\n'+
-							file.contents.toString().replace(
-								/(url\(['"]?)(.*?)(['"]?\))/gim,
-								'$1'+urlPrefix+'$2$3'
-							),
-							'utf-8'
-						);
-					}))
-					.pipe(concat(bundleName+'.css'))
-					.pipe(sourcemaps.write('./'))
-					.pipe(gulp.dest(conf.less.main.dest))
-					.pipe(tap(function(file) {
-						var relFilePath = getRelPathByChanged(file);
-						if(path.extname(relFilePath) === '.css') {
-							var dest = path.dirname(relFilePath);
-							stream.add(gulp.src(relFilePath)
-								.pipe(sourcemaps.init({loadMaps: true}))
-								.pipe(rename({extname: '.min.css'}))
-								.pipe(cssnano({zindex: false}))
-								.pipe(sourcemaps.write('./'))
-								.pipe(gulp.dest(dest))
-							);
-						}
-					}))
-				);
-			}
-		}))
-	);
-	stream
-		.pipe(browserSync.stream())
-		.on('end', onTaskEnd)
-	return stream;
-});
-
-
+		}));
+}
 
 /**
  * Сборка html-файлов
@@ -568,13 +580,23 @@ gulp.task('html', function(done) {
 	if( null === cssBundleFiles ) {
 		// Если у нас нет данных о файлах css-bundle-а, то сначала запустим
 		// сборку этих данных и получим эти данные
-		runSequence('css-bundle', 'html-nunjucks', done);
+		runSequence('css-bundle', '--html-nunjucks', done);
+		
+		// Для сборки надо знать только имена css-файлов,
+		// совсем не обязательно собирать bundle, ибо долго
+		//runSequence('css-bundle-parse-imports-list', '--html-nunjucks', done);
 	}
 	else {
-		runSequence('html-nunjucks', done);
+		runSequence('--html-nunjucks', done);
 	}
 });
-gulp.task('html-nunjucks', function() {
+// Это системная задача, которая не должна выполняться через консоль
+// Есть гепотиза, что если дать ей имя с префиксом в виде двух дефисов
+// то интерпретатор команд не сможет скормить gulp-у --html-nunjucks
+// как имя задачи, ибо "--agrument-name" интерпретируется как аргумент getopts
+// а значит будет разрешено только внутреннее использование
+// только в javascript-коде
+gulp.task('--html-nunjucks', function() {
 	nunjucksRender.nunjucks.configure();
 	assetsJs = {};
 	assetsCss = {};
@@ -1148,7 +1170,7 @@ gulp.task('build', function(done) {
 		'js-bundle',
 		'js-scripts',
 		'js-vendor-bundle',
-		'html-nunjucks',
+		'--html-nunjucks',
 		done
 	);
 });
