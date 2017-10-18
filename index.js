@@ -1070,7 +1070,7 @@ function jsScriptsWatcher(changedFile) {
 	);
 	return jsScriptsCommonStreamHandler(
 		gulp.src(file), dest,
-		true ? 'js-script watcher:' : ''
+		false ? 'js-script watcher:' : ''
 	);
 }
 
