@@ -437,18 +437,10 @@ gulp.task('less-main', function() {
 gulp.task('less-main-bundle', function(done) {
 	runSequence('less-main', 'css-bundle', done);
 });
-gulp.task('less-components', function() {
-	var  stream =  merge();
-	gulp.src(conf.less.components.files, {dot: true, base: '.'})
-		.pipe(conf.debug ? debug({title: 'component less:'}) : gutil.noop())
-		.pipe(tap(function(file) {
-			var relFilePath = getRelPathByChanged(file)
-				,dest = path.dirname(relFilePath)
-				,streamFile = gulp.src(relFilePath, {dot: true});
-			lessCommonPipe(streamFile, dest);
-			stream.add(streamFile);
-		}));
-	return stream;
+gulp.task('less-components', function(done) {
+	var stream = gulp.src(conf.less.components.files, {dot: true, base: '.'})
+		.pipe(conf.debug ? debug({title: 'component less:'}) : gutil.noop());
+	return lessCommonPipe(stream, '.');
 });
 function lessCommonPipe(stream, dest) {
 	stream.pipe(plumber())
@@ -467,6 +459,7 @@ function lessCommonPipe(stream, dest) {
 		.pipe(browserSyncStream())
 		.on('end', onTaskEnd)
 	;
+	return stream;
 }
 function lessWatcher(changedFile, target) {
 	var file = getRelPathByChanged(changedFile)
@@ -926,10 +919,10 @@ function nunjucksBitrixComponentTag(env) {
  * @task {js}
  * @order {5}
  */
-gulp.task('js', ['js-bundle', 'js-scripts', 'js-vendor-bundle']);
-//gulp.task('js', function() {
-//	runSequence('js-bundle', ['js-scripts', 'js-vendor-bundle']);
-//});
+//gulp.task('js', ['js-bundle', 'js-scripts', 'js-vendor-bundle']);
+gulp.task('js', function() {
+	runSequence('js-bundle', 'js-scripts', 'js-vendor-bundle');
+});
 /**
  * Выделяем встроенный sourcemap browserify в отдельный файл
  * Этот обработчик передается в .pipe(tap(...))
@@ -984,17 +977,18 @@ gulp.task('js-bundle', function() {
 				));
 			}
 			else {
-				stream.add(gulp.src(bundleSrcFile, {dot: true, base: '.', read: false})
-					.pipe(plumber())
-					.pipe(browserify({ debug: true }))
-					.on('error', swallowError)
-					.pipe(rename(bundleFile))
-					.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
-					.pipe(gulp.dest(bundleDir))
-					.pipe(tap(function(file) {
-						stream.add(jsScriptsWatcher(file));
-					}))
-				);
+				stream.add(jsScriptsCommonStreamHandler(
+					(
+						gulp.src(bundleSrcFile, {dot: true, base: '.', read: false})
+						.pipe(plumber())
+						.pipe(browserify({ debug: true }))
+						.on('error', swallowError)
+						.pipe(rename(bundleFile))
+						.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
+					),
+					bundleDir,
+					conf.debug ? 'js-bundle "'+bundleName+'":' : ''
+				));
 			}
 		}))
 	);
@@ -1010,19 +1004,20 @@ gulp.task('js-vendor-bundle', function() {
 	var stream = merge()
 		,bundleDir = path.dirname(conf.js.vendor.out)
 		,bundleFile = path.basename(conf.js.vendor.out);
-	stream.add(gulp.src(conf.js.vendor.src, {dot: true, base: '.', read: false})
-		.pipe(plumber())
-		.pipe(browserify({
-			debug: true
-			,shim: conf.js.vendor.shim
-		}))
-		.on('error', swallowError)
-		.pipe(rename(bundleFile))
-		.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
-		.pipe(gulp.dest(bundleDir))
-		.pipe(tap(function(file) {
-			stream.add(jsScriptsWatcher(file));
-		}))
+	return jsScriptsCommonStreamHandler(
+		(
+			gulp.src(conf.js.vendor.src, {dot: true, base: '.', read: false})
+			.pipe(plumber())
+			.pipe(browserify({
+				debug: true
+				,shim: conf.js.vendor.shim
+			}))
+			.on('error', swallowError)
+			.pipe(rename(bundleFile))
+			.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
+		),
+		bundleDir,
+		conf.debug ? 'vendor-bundle:' : ''
 	);
 	return stream;
 });
@@ -1033,14 +1028,31 @@ gulp.task('js-vendor-bundle', function() {
  * @order {6}
  */
 gulp.task('js-scripts', function() {
-	var  stream =  merge();
-	gulp.src(conf.js.scripts, {dot: true, base: '.'})
-		.pipe(tap(function(file) {
-			stream.add(jsScriptsWatcher(file));
-		}))
-	;
-	return stream;
+	return jsScriptsCommonStreamHandler(
+		gulp.src(conf.js.scripts, {dot: true, base: '.'}),
+		'.', 
+		conf.debug ? 'js-script:' : ''
+	);
 });
+function jsScriptsCommonStreamHandler(stream, dest, debugTitle) {
+	var debugMode = true;
+	if( 'string' != typeof(debugTitle)
+		|| '' == debugTitle
+	) {
+		debugMode = false;
+	}
+	return stream
+		.pipe(plumber())
+		.pipe(sourcemaps.init({loadMaps: true}))
+		.pipe(uglify())
+		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
+		.pipe(rename({extname: '.min.js'}))
+		.pipe(sourcemaps.write('./'))
+		.pipe(gulp.dest(dest))
+		.pipe(browserSyncStream())
+		.on('end', onTaskEnd)
+	;
+}
 function jsScriptsWatcher(changedFile) {
 	var file = getRelPathByChanged(changedFile)
 		,dest = path.dirname(file)
@@ -1056,15 +1068,10 @@ function jsScriptsWatcher(changedFile) {
 			dest+'/{ '+fileName+' -> '+fileName.replace(/\.js/, '.min.js')+' }'
 		)
 	);
-	return gulp.src(file)
-		.pipe(plumber())
-		.pipe(sourcemaps.init({loadMaps: true}))
-		.pipe(uglify())
-		.pipe(rename({extname: '.min.js'}))
-		.pipe(sourcemaps.write('./'))
-		.pipe(gulp.dest(dest))
-		.pipe(browserSyncStream())
-		.on('end', onTaskEnd)
+	return jsScriptsCommonStreamHandler(
+		gulp.src(file), dest,
+		true ? 'js-script watcher:' : ''
+	);
 }
 
 
