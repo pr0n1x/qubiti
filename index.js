@@ -985,6 +985,7 @@ gulp.task('js-bundle', function() {
 						.on('error', swallowError)
 						.pipe(rename(bundleFile))
 						.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
+						.pipe(gulp.dest(bundleDir))
 					),
 					bundleDir,
 					conf.debug ? 'js-bundle "'+bundleName+'":' : ''
@@ -1015,6 +1016,7 @@ gulp.task('js-vendor-bundle', function() {
 			.on('error', swallowError)
 			.pipe(rename(bundleFile))
 			.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
+			.pipe(gulp.dest(bundleDir))
 		),
 		bundleDir,
 		conf.debug ? 'vendor-bundle:' : ''
