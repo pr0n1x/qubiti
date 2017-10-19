@@ -453,25 +453,54 @@ function lessCommonPipe(stream, dest, debugTitle) {
 		debugMode = false;
 	}
 	var filterCss = filter('**/*.css', {restore: true});
+	
+	function mapSources(sourcePath, file) {
+		var compileFilePath = file.path.replace(conf.curDir+'/', '');
+		var compileFileName = path.basename(compileFilePath);
+		var compileDir = path.dirname(compileFilePath);
+		
+		var srcFileName = path.basename(sourcePath);
+		var srcFileDir = path.dirname(sourcePath);
+		var upToRoot = path.relative('/'+compileDir, '/');
+		
+		var resultSrc = upToRoot+'/'+compileDir+'/'+sourcePath;
+		if( dest == '.' || dest == './' || dest == '.\\' ) {
+			resultSrc = upToRoot+'/'+sourcePath;
+		}
+		
+// 		gutil.log(compileDir+':');
+// 		gutil.log(compileDir+':  complie dir: '+compileDir);
+// 		gutil.log(compileDir+': complie file: '+compileFileName);
+// 		gutil.log(compileDir+': compile path: '+compileFilePath);
+// 		gutil.log(compileDir+':     ~ source: '+sourcePath);
+// 		gutil.log(compileDir+':     src name: '+srcFileName);
+// 		gutil.log(compileDir+':      src dir: '+srcFileDir);
+// 		gutil.log(compileDir+':   up to root: '+upToRoot);
+// 		gutil.log(compileDir+':   result src: '+resultSrc);
+// 		gutil.log(compileDir+':');
+		return resultSrc;
+	}
+	
 	stream.pipe(plumber())
+		.pipe(rename({extname: '.less'}))
 		.pipe(sourcemaps.init())
 		.pipe(less())
+		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
 		//.pipe(autoprefixer())
 		
-		.pipe(sourcemaps.write('.', { includeContent: true }))
-		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
-		.pipe(gulp.dest(dest)) // save not minified only
+		.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
+		.pipe(gulp.dest(dest))
 		
 		.pipe(filterCss)
 		.pipe(rename({extname: '.min.css'}))
 		.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
 		.pipe(sourcemaps.write('.', { includeContent: true }))
-		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
-		.pipe(gulp.dest(dest))
 		.pipe(filterCss.restore)
 		
+		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
+		.pipe(gulp.dest(dest))
 		.pipe(browserSyncStream())
 		.on('end', onTaskEnd)
 	;
