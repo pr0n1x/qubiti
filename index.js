@@ -920,8 +920,8 @@ function nunjucksBitrixComponentTag(env) {
  * @order {5}
  */
 //gulp.task('js', ['js-bundle', 'js-scripts', 'js-vendor-bundle']);
-gulp.task('js', function() {
-	runSequence('js-bundle', 'js-scripts', 'js-vendor-bundle');
+gulp.task('js', function(done) {
+	runSequence(['js-bundle', 'js-scripts', 'js-vendor-bundle'], done);
 });
 /**
  * Выделяем встроенный sourcemap browserify в отдельный файл
