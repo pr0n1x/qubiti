@@ -429,33 +429,49 @@ gulp.task('less', function(done) {
 });
 
 gulp.task('less-main', function() {
-	var stream = gulp.src(conf.less.main.files, {dot: true})
-		.pipe(conf.debug ? debug({title: 'main less:'}) : gutil.noop());
-	lessCommonPipe(stream, conf.less.main.dest);
-	return stream;
+	return lessCommonPipe(
+		gulp.src(conf.less.main.files, {dot: true}),
+		conf.less.main.dest,
+		conf.debug ? 'main less:' : ''
+	);
 });
 gulp.task('less-main-bundle', function(done) {
 	runSequence('less-main', 'css-bundle', done);
 });
 gulp.task('less-components', function(done) {
-	var stream = gulp.src(conf.less.components.files, {dot: true, base: '.'})
-		.pipe(conf.debug ? debug({title: 'component less:'}) : gutil.noop());
-	return lessCommonPipe(stream, '.');
+	return lessCommonPipe(
+		gulp.src(conf.less.components.files, {dot: true, base: '.'}),
+		'.',
+		conf.debug ? 'component less:' : ''
+	);
 });
-function lessCommonPipe(stream, dest) {
+function lessCommonPipe(stream, dest, debugTitle) {
+	var debugMode = true;
+	if( 'string' != typeof(debugTitle)
+		|| '' == debugTitle
+	) {
+		debugMode = false;
+	}
+	var filterCss = filter('**/*.css', {restore: true});
 	stream.pipe(plumber())
 		.pipe(sourcemaps.init())
 		.pipe(less())
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
 		//.pipe(autoprefixer())
-		.pipe(gulp.dest(dest))
-		.pipe(browserSyncStream())
+		
+		.pipe(sourcemaps.write('.', { includeContent: true }))
+		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
+		.pipe(gulp.dest(dest)) // save not minified only
+		
+		.pipe(filterCss)
 		.pipe(rename({extname: '.min.css'}))
 		.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
-		.pipe(sourcemaps.write('.', { includeContent: false }))
-		.pipe(conf.debug ? debug({title: 'common less:'}) : gutil.noop())
+		.pipe(sourcemaps.write('.', { includeContent: true }))
+		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
 		.pipe(gulp.dest(dest))
+		.pipe(filterCss.restore)
+		
 		.pipe(browserSyncStream())
 		.on('end', onTaskEnd)
 	;
@@ -520,7 +536,7 @@ function lessWatcher(changedFile, target) {
 		default:
 			throw 'less-watcher: wrong watcher target';
 	}
-	lessCommonPipe(stream, dest);
+	lessCommonPipe(stream, dest, conf.debug ? 'less watcher:' : '');
 	return stream;
 }
 
