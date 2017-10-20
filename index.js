@@ -642,9 +642,11 @@ gulp.task('css-bundle', function() {
 								.pipe(rename({extname: '.min.css'}))
 								.pipe(cssnano({zindex: false}))
 								// Уведосляем браузер о том, что изменился собранный
-								// файд css-bundle-а, но только в том случае, если
-								// сборка работает в production-режиме
-								// так как в ином случае в html-е подключены
+								// файл css-bundle-а,
+								// ! но только в том случае, если
+								// сборка работает в production-режиме.
+								// В ином случае файлы бандла
+								// подключены непосредственно в html-е
 								.pipe(
 									( conf.production
 										|| !isInteractiveMode
