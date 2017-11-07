@@ -452,7 +452,7 @@ function lessCommonPipe(stream, dest, debugTitle) {
 	) {
 		debugMode = false;
 	}
-	var filterCss = filter('**/*.css', {restore: true});
+	var filterCss = filter('**'+path.sep+'*.css', {restore: true});
 	
 	function mapSources(sourcePath, file) {
 		var compileFilePath = file.path.replace(conf.curDir+'/', '');
