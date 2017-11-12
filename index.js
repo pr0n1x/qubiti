@@ -452,7 +452,7 @@ function lessCommonPipe(stream, dest, debugTitle) {
 	) {
 		debugMode = false;
 	}
-	var filterCss = filter('**/*.css', {restore: true});
+	var filterCss = filter('**'+path.sep+'*.css', {restore: true});
 	
 	function mapSources(sourcePath, file) {
 		var compileFilePath = file.path.replace(conf.curDir+'/', '');
@@ -622,12 +622,17 @@ gulp.task('css-bundle', function() {
 						
 						file.contents = new Buffer(
 							'\n/* '+cssFile+' */\n'+
-							file.contents.toString().replace(
-								/(url\(['"]?)(.*?)(['"]?\))/gim,
-								'$1'+urlPrefix+'$2$3'
-							),
-							'utf-8'
+							file.contents
+								.toString()
+								.trim()
+								// исправляем в стилях url(...)
+								.replace(/(url\(['"]?)(.*?)(['"]?\))/gim, '$1'+urlPrefix+'$2$3')
+								// Удаляем возможные sourceMappingURL уже включенные в css-bundle
+								.replace(/\n{0,2}\/\*#\s*sourceMappingURL(.*?)\*\//, '')
+								.trim()
+							,'utf-8'
 						);
+						
 					}));
 					bundleStream
 					.pipe(concat(bundleName+'.css'))
