@@ -458,7 +458,6 @@ function lessCommonPipe(stream, dest, debugTitle) {
 	) {
 		debugMode = false;
 	}
-	var filterCss = filter('**'+path.sep+'*.css', {restore: true});
 	
 	function mapSources(sourcePath, file) {
 		var compileFilePath = file.path.replace(conf.curDir+'/', '');
@@ -487,6 +486,13 @@ function lessCommonPipe(stream, dest, debugTitle) {
 		return resultSrc;
 	}
 	
+	const filterOutMapFiles = filter(
+		function(file) {
+			return '.map' !== file.path.substring(file.path.length-4, file.path.length);
+		},
+		{restore: true}
+	);
+	
 	stream.pipe(plumber())
 		.pipe(rename({extname: '.less'}))
 		.pipe(sourcemaps.init())
@@ -499,11 +505,11 @@ function lessCommonPipe(stream, dest, debugTitle) {
 		.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
 		.pipe(gulp.dest(dest))
 		
-		.pipe(filterCss)
+		.pipe(filterOutMapFiles)
 		.pipe(rename({extname: '.min.css'}))
 		.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
 		.pipe(sourcemaps.write('.', { includeContent: true }))
-		.pipe(filterCss.restore)
+		.pipe(filterOutMapFiles.restore)
 		
 		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
 		.pipe(gulp.dest(dest))
