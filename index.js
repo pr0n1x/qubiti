@@ -17,6 +17,7 @@ const
 	,path = require('path')
 	,decodeKeypress = require('decode-keypress')
 	,del = require('del')
+	,envify = require('envify/custom')
 	,glob = require('glob')
 	,autoprefixer = require('gulp-autoprefixer')
 	,browserify = require('gulp-browserify')
@@ -1033,7 +1034,12 @@ gulp.task('js-bundle', function() {
 					(
 						gulp.src(bundleSrcFile, {dot: true, base: '.', read: false})
 						.pipe(plumber())
-						.pipe(browserify({ debug: true }))
+						.pipe(browserify({
+							debug: true
+// 							,transform: [
+// 								envify({NODE_ENV: 'production'})
+// 							]
+						}))
 						.on('error', swallowError)
 						.pipe(rename(bundleFile))
 						.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
