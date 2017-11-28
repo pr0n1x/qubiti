@@ -299,21 +299,26 @@ conf.production = !!(gutil.env.production ? true : conf.production);
 if( conf.production ) {
 	conf.assets.min_css = true;
 	conf.assets.min_js = true;
+	conf.html.bx_component.use_minified_css = true;
+	conf.html.bx_component.use_minified_js = true;
 }
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
-	conf.assets.min_css = parseArgAsBool(gutil.env['assets-min']);
-	conf.assets.min_js = parseArgAsBool(gutil.env['assets-min']);
+	var isAllAssetsIsMinified = parseArgAsBool(gutil.env['assets-min']);
+	conf.assets.min_css = isAllAssetsIsMinified;
+	conf.assets.min_js = isAllAssetsIsMinified;
+	conf.html.bx_component.use_minified_css = isAllAssetsIsMinified;
+	conf.html.bx_component.use_minified_js = isAllAssetsIsMinified;
 }
 if( typeof(gutil.env['assets-min-css']) != 'undefined' ) {
 	conf.assets.min_css = parseArgAsBool(gutil.env['assets-min-css']);
+	conf.html.bx_component.use_minified_css = conf.assets.min_css;
 }
 if( typeof(gutil.env['assets-min-js']) != 'undefined' ) {
 	conf.assets.min_js = parseArgAsBool(gutil.env['assets-min-js']);
+	conf.html.bx_component.use_minified_js = conf.assets.min_js;
 }
 
-conf.html.bx_component.use_minified_css = conf.assets.min_css;
-conf.html.bx_component.use_minified_js = conf.assets.min_js;
 
 if( typeof(gutil.env['dev-no-bsync-css-bundle-file']) != 'undefined' ) {
 	conf.dev_mode.no_bsync_css_bundle_file = parseArgAsBool(gutil.env['dev-no-bsync-css-bundle-file']);
