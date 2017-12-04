@@ -46,6 +46,7 @@
     "gulp-twig": "^0.7.0",
     "gulp-uglify": "^2.1.2",
     "gulp-util": "^3.0.7",
+    "gulp-vueify": "0.0.3",
     "gulp-watch": "^4.3.11",
     "gulp.spritesmith": "^6.5.0",
     "merge-stream": "^1.0.1",
@@ -54,6 +55,7 @@
     "run-sequence": "^1.2.2",
     "vinyl-buffer": "^1.0.0",
     "vinyl-source-stream": "^1.1.0",
+    "vue-hot-reload-api": "^2.2.4",
     "vueify": "^9.4.1"
   },
   "devDependencies": {

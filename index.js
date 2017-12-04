@@ -45,14 +45,19 @@ const
 	,merge = require('merge-stream')
 	,runSequence = require('run-sequence').use(gulp)
 	,through = require('through')
-	,vbuf = require('vinyl-buffer')
-	,vsrc = require('vinyl-source-stream')
+	,vbuffer = require('vinyl-buffer')
+	,vsource = require('vinyl-source-stream')
 	,gbuffer = require('gulp-buffer')
 	,browserify = require('browserify')
+	,gbrowserify = require('gulp-browserify')
 	,babelify = require('babelify')
 	,vueify = require('vueify')
+	,gvueify = require('gulp-vueify')
 	,babelPreset = require('babel-preset-env')
 ;
+vueify.compiler.applyConfig({
+	babel: {presets: [babelPreset]}
+});
 
 //noinspection JSCheckFunctionSignatures
 var browserSync = require('browser-sync').create();
@@ -1010,9 +1015,12 @@ function tapExternalizeBroserifySourceMap(bundleDir) {
 		var mapFilePath = conf.curDir+'/'+bundleDir+'/'+mapFileName;
 		var src = file.contents.toString();
 		var converter = convertSourceMap.fromSource(src);
-		fs.writeFileSync(mapFilePath, converter
-			.toJSON()
-			.replace(new RegExp(''+conf.curDir+'/', 'gim'), '../')
+		fs.writeFileSync(
+			mapFilePath,
+			converter
+				.toJSON()
+				.replace(new RegExp(''+conf.curDir+'/', 'gim'), '../')
+				.replace(new RegExp('"js/([a-zA-Z0-9\\-\\_\\.]+)/', 'gim'), '"../js/$1/')
 		);
 		file.contents = new Buffer(
 			convertSourceMap.removeComments(src).trim()
@@ -1052,14 +1060,14 @@ gulp.task('js-bundle', function() {
 						debug: true
 						//paths: ['./node_modules', './js/src']
 					})
-					.transform(vueify)
-					.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
 					.transform(babelify, {
 						presets: [babelPreset]
 					})
+					.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
+					.transform(vueify)
 					;
 				var bundleStream = bfy.bundle()
-					.pipe(vsrc(bundleFile))
+					.pipe(vsource(bundleFile))
 					.pipe(plumber())
 					.pipe(gbuffer())
 					.on('error', swallowError)
@@ -1084,24 +1092,28 @@ gulp.task('js-bundle', function() {
 gulp.task('js-vendor-bundle', function() {
 	var bundleDir = path.dirname(conf.js.vendor.out)
 		,bundleFile = path.basename(conf.js.vendor.out);
-	var bfy = browserify({
-			entries: conf.js.vendor.src,
+	var bfy = browserify(conf.curDir+'/'+conf.js.vendor.src, {
 			debug: true
 			//paths: ['./node_modules', './js/vendor']
 		})
-		.transform(vueify)
 		.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
 		.transform(babelify, {
 			presets: [babelPreset]
 		})
+		.transform(vueify, {
+			babel: {presets: [babelPreset]}
+		})
 		;
 	var bundleStream = bfy.bundle()
-		.pipe(vsrc(bundleFile))
+		.pipe(vsource(bundleFile))
+		.pipe(rename(bundleFile))
+		.pipe(vbuffer())
 		.pipe(plumber())
-		.pipe(gbuffer())
 		.on('error', swallowError)
 		.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
 		.pipe(gulp.dest(bundleDir));
+
+	// return bundleStream;
 	return jsScriptsCommonStreamHandler(
 		bundleStream,
 		bundleDir,
@@ -1261,7 +1273,7 @@ gulp.task('sprites', function(done) {
 						});
 						var lessMixinsFileName = path.basename(conf.sprites.dest.lessMixins)
 							,lessMixinsDir = path.dirname(conf.sprites.dest.lessMixins)
-							,lessMixinsSpriteStream = vsrc(lessMixinsFileName)
+							,lessMixinsSpriteStream = vsource(lessMixinsFileName)
 							,lessMixinsSpriteStreamEnd = lessMixinsSpriteStream
 						;
 						lessMixinsSpriteStream.write(mixinsContent);
@@ -1271,7 +1283,7 @@ gulp.task('sprites', function(done) {
 
 						lessMixinsSpriteStream
 							.pipe(conf.debug ? debug({title: 'spriteBatch less mixin:'}) : gutil.noop())
-							.pipe(vbuf())
+							.pipe(vbuffer())
 							.pipe(gulp.dest(lessMixinsDir))
 						;
 						resultStream.add(lessMixinsSpriteStream);
