@@ -12,7 +12,8 @@ module.exports = function(gulp, currentTemplateDir) {
 
 /** @const */
 const
-	 fs = require('fs')
+	os = require('os')
+	,fs = require('fs')
 	,extend = require('extend')
 	,path = require('path')
 	,decodeKeypress = require('decode-keypress')
@@ -53,11 +54,25 @@ const
 	,babelify = require('babelify')
 	,vueify = require('vueify')
 	,gvueify = require('gulp-vueify')
-	,babelPreset = require('babel-preset-env')
+	,babelPresetEs2015 = require('babel-preset-es2015')
+	,babelPresetEnv = require('babel-preset-env')
+	,babelPresetStage2 = require('babel-preset-stage-2')
+	,babelPluginTransformRuntime = require('babel-plugin-transform-runtime')
+	,babelPluginTransformExportExtensions = require('babel-plugin-transform-export-extensions')
+	,babelPluginSyntaxExportExtensions = require('babel-plugin-syntax-export-extensions')
 ;
-vueify.compiler.applyConfig({
-	babel: {presets: [babelPreset]}
-});
+var babelConfig = {
+	presets: [
+		babelPresetEnv,
+		babelPresetStage2
+	],
+	plugins: [
+		babelPluginTransformRuntime,
+		babelPluginTransformExportExtensions,
+		babelPluginSyntaxExportExtensions
+	]
+};
+vueify.compiler.applyConfig({ babel: babelConfig });
 
 //noinspection JSCheckFunctionSignatures
 var browserSync = require('browser-sync').create();
@@ -1061,7 +1076,10 @@ gulp.task('js-bundle', function() {
 						//paths: ['./node_modules', './js/src']
 					})
 					.transform(babelify, {
-						presets: [babelPreset]
+						presets: [
+							babelPresetEnv,
+							babelPresetStage2
+						]
 					})
 					.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
 					.transform(vueify)
@@ -1094,17 +1112,37 @@ gulp.task('js-vendor-bundle', function() {
 		,bundleFile = path.basename(conf.js.vendor.out);
 	var bfy = browserify(conf.curDir+'/'+conf.js.vendor.src, {
 			debug: true
-			//paths: ['./node_modules', './js/vendor']
+			//,global: true
+			,paths: [
+				// подключаем модули из
+				,'./node_modules' // node_modules а шаблоне сайта
+				,'./js/vendor' // из дефолтной папки js/vendor в шаблоне сайта
+				,__dirname+'/node_modules' // из папки node_modules в .qubiti
+			]
 		})
-		.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
-		.transform(babelify, {
-			presets: [babelPreset]
+		.transform(babelify.configure(babelConfig), babelConfig)
+		.transform(vueify, { babel: babelConfig })
+		// .transform(babelify)
+		// .transform(vueify)
+		.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}));
+	if(conf.debug) {
+		var bFirst = true;
+		bfy.on('transform', function(tr, src) {
+			if( bFirst ) {
+				console.log(tr);
+				bFirst = false;
+			}
+			gutil.log(gutil.colors.blue('browserify transform: '+src));
 		})
-		.transform(vueify, {
-			babel: {presets: [babelPreset]}
-		})
-		;
-	var bundleStream = bfy.bundle()
+	}
+	function handleBrowserifyError(err) {
+		gutil.log(
+			gutil.colors.red('Browserify bundling error: <<<')
+			+os.EOL+err+os.EOL
+			+gutil.colors.red('===')
+		);
+	}
+	var bundleStream = bfy.bundle(handleBrowserifyError)
 		.pipe(vsource(bundleFile))
 		.pipe(rename(bundleFile))
 		.pipe(vbuffer())
