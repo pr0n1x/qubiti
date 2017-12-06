@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Сборщик верстки для шаблонов Битрикс
- * 
+ *
  * известные баги:
  * 1. Если в компонентах нет ни одного файла style.less, то таск по сборке стилей будет падать
  * 2. При удалении файлов в интерактивном режиме, сервер скорее всего упадет.
@@ -68,7 +68,7 @@ var conf = {
 		// используются отдельные файлы css-bundle-а
 		// подключенные непосредственно в html-е.
 		// Соответственно:
-		
+
 		// можно не синхронизировать в browser-sync
 		// файл bundle[.min].css
 		// опция в консоли: --dev-no-bsync-css-bundle-file
@@ -97,7 +97,7 @@ var conf = {
 		,watch: [
 			 '@base/**/*.njk'
 			,'@base/**/*.json'
-			
+
 			,'components/*/*/{*,.*}/**/*.njk'
 			,'components/*/*/{*,.*}/**/*.json'
 			,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.njk'
@@ -389,12 +389,12 @@ var isArray = (function () {
 	// Use compiler's own isArray when available
 	if (Array.isArray) {
 		return Array.isArray;
-	} 
+	}
 
 	// Retain references to variables for performance
 	// optimization
 	var objectToStringFn = Object.prototype.toString,
-		arrayToStringResult = objectToStringFn.call([]); 
+		arrayToStringResult = objectToStringFn.call([]);
 
 	return function (subject) {
 		return objectToStringFn.call(subject) === arrayToStringResult;
@@ -458,21 +458,21 @@ function lessCommonPipe(stream, dest, debugTitle) {
 	) {
 		debugMode = false;
 	}
-	
+
 	function mapSources(sourcePath, file) {
 		var compileFilePath = file.path.replace(conf.curDir+'/', '');
 		var compileFileName = path.basename(compileFilePath);
 		var compileDir = path.dirname(compileFilePath);
-		
+
 		var srcFileName = path.basename(sourcePath);
 		var srcFileDir = path.dirname(sourcePath);
 		var upToRoot = path.relative('/'+compileDir, '/');
-		
+
 		var resultSrc = upToRoot+'/'+compileDir+'/'+sourcePath;
 		if( dest == '.' || dest == './' || dest == '.\\' ) {
 			resultSrc = upToRoot+'/'+sourcePath;
 		}
-		
+
 // 		gutil.log(compileDir+':');
 // 		gutil.log(compileDir+':  complie dir: '+compileDir);
 // 		gutil.log(compileDir+': complie file: '+compileFileName);
@@ -485,14 +485,14 @@ function lessCommonPipe(stream, dest, debugTitle) {
 // 		gutil.log(compileDir+':');
 		return resultSrc;
 	}
-	
+
 	const filterOutMapFiles = filter(
 		function(file) {
 			return '.map' !== file.path.substring(file.path.length-4, file.path.length);
 		},
 		{restore: true}
 	);
-	
+
 	stream.pipe(plumber())
 		.pipe(rename({extname: '.less'}))
 		.pipe(sourcemaps.init())
@@ -501,16 +501,16 @@ function lessCommonPipe(stream, dest, debugTitle) {
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
 		//.pipe(autoprefixer())
-		
+
 		.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
 		.pipe(gulp.dest(dest))
-		
+
 		.pipe(filterOutMapFiles)
 		.pipe(rename({extname: '.min.css'}))
 		.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
 		.pipe(sourcemaps.write('.', { includeContent: true }))
 		.pipe(filterOutMapFiles.restore)
-		
+
 		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
 		.pipe(gulp.dest(dest))
 		.pipe(browserSyncStream())
@@ -588,9 +588,9 @@ function lessWatcher(changedFile, target) {
  */
 gulp.task('css-bundle', function() {
 	var stream = new merge();
-	
+
 	stream.add(parseCssBundleImportList(function(bundleName, relBundleFilePath, cssBundleFiles, cssBundleFilesImport) {
-		
+
 		if( conf.production
 			|| !isInteractiveMode
 			|| !conf.dev_mode.no_build_css_bundle_file
@@ -606,7 +606,7 @@ gulp.task('css-bundle', function() {
 					.pipe(browserSyncStream())
 				);
 			}
-			
+
 			if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
 				var bundleStream = gulp.src(cssBundleFiles, {dot: true})
 					.pipe(conf.debug ? debug({title: 'css bundle file:'}) : gutil.noop())
@@ -631,7 +631,7 @@ gulp.task('css-bundle', function() {
 							.replace(/\/$/, '');
 						var stepsToRootFromDest = path.relative('/'+dest, '/');
 						var urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
-						
+
 						file.contents = new Buffer(
 							'\n/* '+cssFile+' */\n'+
 							file.contents
@@ -644,7 +644,7 @@ gulp.task('css-bundle', function() {
 								.trim()
 							,'utf-8'
 						);
-						
+
 					}));
 					bundleStream
 					.pipe(concat(bundleName+'.css'))
@@ -680,7 +680,7 @@ gulp.task('css-bundle', function() {
 							);
 						}
 					}));
-				
+
 				stream.add(bundleStream);
 			}
 		}
@@ -688,7 +688,7 @@ gulp.task('css-bundle', function() {
 			gutil.log('ignoring building of css-bundle: '+gutil.colors.blue(bundleName+'.css')+gutil.colors.gray(' (--dev-no-build-css-bundle-file)'));
 		}
 	}));
-	
+
 	stream.on('end', onTaskEnd)
 	return stream;
 });
@@ -707,7 +707,7 @@ function parseCssBundleImportList(afterParseCallback) {
 				.replace(/^_/, '')
 				.replace(/\.(less|css)$/i, '');
 			var relBundleFilePath = getRelPathByChanged(file);
-			
+
 			var regim = /\s*@import\s*['"]([a-zA-Z0-9_\-\/\.]+)(?:\.css|\.less)['"]\;\s*/gim;
 			var rei = /\s*@import\s*['"]([a-zA-Z0-9_\-\/\.]+)(?:\.css|\.less)['"]\;\s*/i;
 			var matchedStringList = file.contents
@@ -747,7 +747,7 @@ gulp.task('html', function(done) {
 		// Если у нас нет данных о файлах css-bundle-а, то сначала запустим
 		// сборку этих данных и получим эти данные
 		//runSequence('css-bundle', '--html-nunjucks', done);
-		
+
 		// Для сборки надо знать только имена css-файлов,
 		// совсем не обязательно собирать bundle, ибо долго
 		runSequence('css-bundle-parse-imports-list', '--html-nunjucks', done);
@@ -821,7 +821,7 @@ gulp.task('--html-nunjucks', function() {
 		.on('end', onTaskEnd)
 		.on('end', function() { browserSyncReload(); })
 	;
-	
+
 });
 
 /**
@@ -889,7 +889,7 @@ function nunjucksBitrixComponentTag(env) {
 		if(null === htmlTaskCurrentFile) {
 			throw 'bx_component error: current nunjucks template unknown';
 		}
-				
+
 		var addAsset = function(assetStore, assetName, isMinified, fileName, fileNameMin) {
 			isMinified = !!isMinified;
 			var fileExists = false;
@@ -903,7 +903,7 @@ function nunjucksBitrixComponentTag(env) {
 			if( typeof(assetStore[htmlTaskCurrentFile]) == 'undefined' ) {
 				assetStore[htmlTaskCurrentFile] = [];
 			}
-			
+
 			if( isMinified ) {
 				if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) != -1 ) {
 					return;
@@ -938,7 +938,7 @@ function nunjucksBitrixComponentTag(env) {
 					fileExistsMark = '[+]';
 				}
 			}
-			
+
 			if( conf.html.bx_component.debug_assets ) gutil.log(gutil.colors.blue(
 				'bx_component asset '+assetName+(isMinified?'.min':'')+': '
 				+fileExistsMark
@@ -949,10 +949,10 @@ function nunjucksBitrixComponentTag(env) {
 				assetStore[htmlTaskCurrentFile].push(fileHref);
 			}
 		};
-		
+
 		addAsset(assetsJs, ' js', conf.html.bx_component.use_minified_js, 'script.js', 'script.min.js');
 		addAsset(assetsCss, 'css' ,conf.html.bx_component.use_minified_css, 'style.css', 'style.min.css');
-		
+
 		// add params and data
 		if( typeof(args.params) !== 'undefined' ) {
 			ctx.params = extend({}, args.params);
@@ -960,7 +960,7 @@ function nunjucksBitrixComponentTag(env) {
 		if( typeof(args.data) !== 'undefined' ) {
 			ctx.data = extend({}, args.data);
 		}
-		
+
 		// render bx_component
 		var templateFileContent = fs.readFileSync(
 			conf.curDir+'/'+templateFilePath, {encoding: 'utf8'}
@@ -992,10 +992,10 @@ gulp.task('js', function(done) {
  * Этот обработчик передается в .pipe(tap(...))
  * https://github.com/thlorenz/exorcist
  * https://github.com/thlorenz/convert-source-map
- * 
+ *
  * Ещё можно попробовать это https://www.npmjs.com/package/gulp-extract-sourcemap
  * ну... да пускай будет как есть.
- * 
+ *
  * @param bundleDir
  * @returns {Function}
  */
@@ -1101,7 +1101,7 @@ gulp.task('js-vendor-bundle', function() {
 gulp.task('js-scripts', function() {
 	return jsScriptsCommonStreamHandler(
 		gulp.src(conf.js.scripts, {dot: true, base: '.'}),
-		'.', 
+		'.',
 		conf.debug ? 'js-script:' : ''
 	);
 });
@@ -1231,7 +1231,7 @@ gulp.task('sprites', function(done) {
 					fileContent = fileContent.replace(/^\/\/(.*)/gmi, '');
 					// remove multi line comments
 					fileContent = fileContent.replace(/\/\*[\s\S]*?\*\/\n?/gmi, '');
-					
+
 					// получаем миксины для размещения в отдельном файле
 					// берем только один раз из первого спрайта
 					// как это провернуть написано тут:
@@ -1412,7 +1412,7 @@ gulp.task('remove-watchers', function(done) {
 gulp.task('watch-hotkeys', function() {
 	isInteractiveMode = true;
 	var keyListener = new KeyPressEmitter();
-	
+
 	function beginInteractiveModeTaskAction() {
 		isInteractiveMode = false;
 		switchBroserSync(false);
@@ -1422,7 +1422,7 @@ gulp.task('watch-hotkeys', function() {
 		switchBroserSync(true);
 		browserSyncReload();
 	}
-	
+
 	keyListener.on('showHotKeysHelp', function() {
 		runSequence('help-hk');
 	});
@@ -1529,12 +1529,12 @@ gulp.task('keys-debug', function() {
 
 const EventEmitter = require('events').EventEmitter;
 class KeyPressEmitter extends EventEmitter {
-	
+
 	constructor() {
 		super();
 		this._debug = false;
 	}
-	
+
 	start() {
 		//process.stdin.setEncoding('utf8');
 		process.stdin.setRawMode(true);
@@ -1548,7 +1548,7 @@ class KeyPressEmitter extends EventEmitter {
 		const _this = this;
 		process.stdin.on('data', function(data) {
 			const key = decodeKeypress(data);
-			
+
 			if( ( false === key.shift && key.name == 'q')
 				|| (key.ctrl && key.name === 'c')
 			) {
@@ -1560,7 +1560,7 @@ class KeyPressEmitter extends EventEmitter {
 			else if( key.sequence == '\r' ) {
 				console.log();
 			}
-			
+
 			if( key.name == 'f1' && false === key.shift
 				&& false === key.ctrl && false === key.meta
 			) {
@@ -1573,11 +1573,11 @@ class KeyPressEmitter extends EventEmitter {
 				gutil.log('Hot key [F2]: Show help');
 				_this.emit('showHelp');
 			}
-			else if( true === key.shift && key.name == 'w' ) { 
+			else if( true === key.shift && key.name == 'w' ) {
 				gutil.log('Hot key [Shift+w]: Remove watchers');
 				_this.emit('removeWatchers');
 			}
-			else if( false === key.shift && key.name == 'w' ) { 
+			else if( false === key.shift && key.name == 'w' ) {
 				gutil.log('Hot key [w]: Reload watchers');
 				_this.emit('reloadWatchers');
 			}
@@ -1602,11 +1602,11 @@ class KeyPressEmitter extends EventEmitter {
 				_this.emit('buildAllStyles');
 			}
 			else if( true === key.shift && key.name == 'l' ) {
-				gutil.log('Hot key [l]: Build obly bundle of main styles');
+				gutil.log('Hot key [Shift+l]: Build obly bundle of main styles');
 				_this.emit('buildCssBundle');
 			}
 			else if( false === key.shift && key.name == 'l' ) {
-				gutil.log('Hot key [Shift+l]: Build component styles');
+				gutil.log('Hot key [l]: Build component styles');
 				_this.emit('buildComponentStyles');
 			}
 			else if( false === key.shift && key.name == 'j' ) {
@@ -1660,7 +1660,7 @@ class KeyPressEmitter extends EventEmitter {
 			// TODO: Дописать запуск разных задач, которые отсутствуют в watcher-ах типа спрайтов, картинок и пр.
 		});
 	}
-	
+
 	set debug(value) {
 		this._debug = !!value;
 	}
