@@ -50,29 +50,30 @@ const
 	,vsource = require('vinyl-source-stream')
 	,gbuffer = require('gulp-buffer')
 	,browserify = require('browserify')
-	,gbrowserify = require('gulp-browserify')
-	,babelify = require('babelify')
-	,vueify = require('vueify')
-	,gvueify = require('gulp-vueify')
-	,babelPresetEs2015 = require('babel-preset-es2015')
-	,babelPresetEnv = require('babel-preset-env')
-	,babelPresetStage2 = require('babel-preset-stage-2')
-	,babelPluginTransformRuntime = require('babel-plugin-transform-runtime')
-	,babelPluginTransformExportExtensions = require('babel-plugin-transform-export-extensions')
-	,babelPluginSyntaxExportExtensions = require('babel-plugin-syntax-export-extensions')
+	,browserifyResolveShimify = require('resolve-shimify');
+	// ,gbrowserify = require('gulp-browserify')
+	// ,babelify = require('babelify')
+	// ,vueify = require('vueify')
+	// ,gvueify = require('gulp-vueify')
+	// ,babelPresetEs2015 = require('babel-preset-es2015')
+	// ,babelPresetEnv = require('babel-preset-env')
+	// ,babelPresetStage2 = require('babel-preset-stage-2')
+	// ,babelPluginTransformRuntime = require('babel-plugin-transform-runtime')
+	// ,babelPluginTransformExportExtensions = require('babel-plugin-transform-export-extensions')
+	// ,babelPluginSyntaxExportExtensions = require('babel-plugin-syntax-export-extensions')
 ;
-var babelConfig = {
-	presets: [
-		babelPresetEnv,
-		babelPresetStage2
-	],
-	plugins: [
-		babelPluginTransformRuntime,
-		babelPluginTransformExportExtensions,
-		babelPluginSyntaxExportExtensions
-	]
-};
-vueify.compiler.applyConfig({ babel: babelConfig });
+// var babelConfig = {
+// 	presets: [
+// 		babelPresetEnv,
+// 		babelPresetStage2
+// 	],
+// 	plugins: [
+// 		babelPluginTransformRuntime,
+// 		babelPluginTransformExportExtensions,
+// 		babelPluginSyntaxExportExtensions
+// 	]
+// };
+// vueify.compiler.applyConfig({ babel: babelConfig });
 
 //noinspection JSCheckFunctionSignatures
 var browserSync = require('browser-sync').create();
@@ -195,18 +196,9 @@ var conf = {
 			src: 'js/vendor/_bundle.js'
 			,out: 'js/bundle.vendor.js'
 			,shim: {
-// 				jquery: {
-// 					path: 'js/vendor/jquery.js'
-// 					,exports: 'jQuery'
-// 				}
-// 				,"jquery-mousewheel": {
-// 					path: 'js/vendor/jquery.mousewheel/jquery.mousewheel.js'
-// 					,exports: 'jqueryMousewheel'
-// 				}
-// 				,doT: {
-// 					path: 'js/vendor/doT/doT.js'
-// 					,exports: 'doT'
-// 				}
+				// jquery: 'js/vendor/jquery.js'
+				// ,"jquery-mousewheel": 'js/vendor/jquery.mousewheel/jquery.mousewheel.js'
+				// ,doT: 'js/vendor/doT/doT.js'
 			}
 		}
 		,scripts: [
@@ -1110,39 +1102,58 @@ gulp.task('js-bundle', function() {
 gulp.task('js-vendor-bundle', function() {
 	var bundleDir = path.dirname(conf.js.vendor.out)
 		,bundleFile = path.basename(conf.js.vendor.out);
-	var bfy = browserify(conf.curDir+'/'+conf.js.vendor.src, {
+	var bfy = browserify(
+		conf.curDir+'/'+conf.js.vendor.src,
+		{
 			debug: true
-			//,global: true
+			// ,global: true
 			,paths: [
 				// подключаем модули из
-				,'./node_modules' // node_modules а шаблоне сайта
-				,'./js/vendor' // из дефолтной папки js/vendor в шаблоне сайта
-				,__dirname+'/node_modules' // из папки node_modules в .qubiti
+				,conf.curDir+'/node_modules'
+				,conf.curDir+'./js/vendor'
+				,__dirname+'/node_modules'
 			]
-		})
-		.transform(babelify.configure(babelConfig), babelConfig)
-		.transform(vueify, { babel: babelConfig })
+		}
+	);
+	var bfyReqShims = {};
+	var packageJson = require(conf.curDir+'/package.json');
+	if( typeof(packageJson['browser']) != 'undefined') {
+		for(var reqLib in packageJson.browser) {
+			(function() {
+				var libPath = packageJson.browser[reqLib];
+				if( '.js' == libPath.substring(libPath.length-3, libPath.length) ) {
+					//console.log(reqLib+' => '+packageJson.browser[reqLib]);
+					bfyReqShims[reqLib] = conf.curDir+'/'+packageJson.browser[reqLib];
+				}
+			})();
+
+		}
+	}
+	for(var confShimLim in conf.js.vendor.shim) {
+		bfyReqShims[confShimLib] = conf.curDir+'/'+conf.js.vendor.shim[confShimLim];
+	}
+	console.log(bfyReqShims);
+	bfy.plugin(browserifyResolveShimify, bfyReqShims);
+		// .transform(babelify.configure(babelConfig), babelConfig)
+		// .transform(vueify, { babel: babelConfig })
 		// .transform(babelify)
 		// .transform(vueify)
-		.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}));
-	if(conf.debug) {
-		var bFirst = true;
-		bfy.on('transform', function(tr, src) {
-			if( bFirst ) {
-				console.log(tr);
-				bFirst = false;
-			}
-			gutil.log(gutil.colors.blue('browserify transform: '+src));
-		})
+		// .transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}));
+	// if(conf.debug) {
+	// 	bfy.on('transform', function(tr, src) {
+	// 		gutil.log(gutil.colors.blue('browserify transform: '+src));
+	// 	})
+	// }
+	function handleBrowserifyBundler(err) {
+		if(err) {
+			gutil.log(
+				gutil.colors.red('Browserify bundling error: <<<')
+				+os.EOL+err+os.EOL
+				+gutil.colors.red('===')
+			);
+		}
 	}
-	function handleBrowserifyError(err) {
-		gutil.log(
-			gutil.colors.red('Browserify bundling error: <<<')
-			+os.EOL+err+os.EOL
-			+gutil.colors.red('===')
-		);
-	}
-	var bundleStream = bfy.bundle(handleBrowserifyError)
+	var bundleStream = bfy.bundle(handleBrowserifyBundler)
 		.pipe(vsource(bundleFile))
 		.pipe(rename(bundleFile))
 		.pipe(vbuffer())
