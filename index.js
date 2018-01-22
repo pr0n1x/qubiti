@@ -89,6 +89,7 @@ var conf = {
 		,pages: [
 			'@base/**/*.njk'
 			,'!@base/**/_*.njk'
+			,'!@base/**/_*/**/*.njk'
 		]
 		,components: [
 			 'components/*/*/{*,.*}/**/*.njk'
