@@ -206,13 +206,13 @@ var conf = {
 			,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.js'
 
 			// Исключаем уже собранные файлы и всякое для require
-			,'!components/*/*/{*,.*}/*{.,-}min.js'
-			,'!components/*/*/{*,.*}/*/*/{*,.*}/*{.,-}min.js'
+			,'!components/*/*/{*,.*}/**/*{.,-}min.js'
+			,'!components/*/*/{*,.*}/*/*/{*,.*}/**/*{.,-}min.js'
 			,'!components/*/*/{*,.*}/vendor/**/*.js'
 			,'!components/*/*/{*,.*}/*/*/{*,.*}/vendor/**/*.js'
-			,'!components/*/*/{*,.*}/_*.js'
-			,'!components/*/*/{*,.*}/_*/*.js'
-			,'!components/*/*/{*,.*}/*/*/{*,.*}/_*/*.js'
+			,'!components/*/*/{*,.*}/**/_*.js'
+			,'!components/*/*/{*,.*}/**/_*/*.js'
+			,'!components/*/*/{*,.*}/*/*/{*,.*}/**/_*/*.js'
 		]
 	}
 	,images: {
