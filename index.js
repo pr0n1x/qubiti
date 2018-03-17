@@ -1067,14 +1067,14 @@ gulp.task('js-bundle', function() {
 						debug: true
 						//paths: ['./node_modules', './js/src']
 					})
-					.transform(babelify, {
-						presets: [
-							babelPresetEnv,
-							babelPresetStage2
-						]
-					})
-					.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
-					.transform(vueify)
+					// .transform(babelify, {
+					// 	presets: [
+					// 		babelPresetEnv,
+					// 		babelPresetStage2
+					// 	]
+					// })
+					// .transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
+					// .transform(vueify)
 					;
 				var bundleStream = bfy.bundle()
 					.pipe(vsource(bundleFile))
@@ -1116,23 +1116,28 @@ gulp.task('js-vendor-bundle', function() {
 		}
 	);
 	var bfyReqShims = {};
-	var packageJson = require(conf.curDir+'/package.json');
-	if( typeof(packageJson['browser']) != 'undefined') {
-		for(var reqLib in packageJson.browser) {
-			(function() {
-				var libPath = packageJson.browser[reqLib];
-				if( '.js' == libPath.substring(libPath.length-3, libPath.length) ) {
-					//console.log(reqLib+' => '+packageJson.browser[reqLib]);
-					bfyReqShims[reqLib] = conf.curDir+'/'+packageJson.browser[reqLib];
-				}
-			})();
-
+	function addRequireResoverShim(reqLib, libPath) {
+		if( '.js' == libPath.substring(libPath.length-3, libPath.length) ) {
+			//console.log(reqLib+' => '+packageJson.browser[reqLib]);
+			bfyReqShims[reqLib] = conf.curDir+'/'+libPath;
 		}
 	}
-	for(var confShimLim in conf.js.vendor.shim) {
-		bfyReqShims[confShimLib] = conf.curDir+'/'+conf.js.vendor.shim[confShimLim];
+	var packageJson = require(conf.curDir+'/package.json');
+	if( typeof(packageJson['browserify-shim']) != 'undefined') {
+		for(var bfyShimLib in packageJson['browserify-shim']) {
+			addRequireResoverShim(bfyShimLib, packageJson['browserify-shim'][bfyShimLib]);
+		}
 	}
-	console.log(bfyReqShims);
+	if( typeof(packageJson['browser']) != 'undeofined') {
+		for(var browserShimLib in packageJson.browser) {
+			addRequireResoverShim(browserShimLib, packageJson.browser[browserShimLib]);
+		}
+	}
+	for(var confShimLib in conf.js.vendor.shim) {
+		bfyReqShims[confShimLib] = conf.curDir+'/'+conf.js.vendor.shim[confShimLib];
+	}
+	//onsole.log(bfyReqShims);
+
 	bfy.plugin(browserifyResolveShimify, bfyReqShims);
 		// .transform(babelify.configure(babelConfig), babelConfig)
 		// .transform(vueify, { babel: babelConfig })
