@@ -190,7 +190,11 @@ var conf = {
 		bundle: {
 			src: 'js/src/_*.js'
 			,out: 'js/bundle.*.js'
-			,watch: 'js/src/**/*.js'
+			,watch: [
+				'js/src/**/*.js',
+				'js/**/*.vue',
+				'vue/**/*.vue'
+			]
 		}
 		,vendor: {
 			src: 'js/vendor/_bundle.js'
@@ -215,8 +219,9 @@ var conf = {
 			// Исключаем уже собранные файлы
 			,'!js/**/*{.,-}min.js'
 			,'!js/bundle.*.js'
+			,'!js/vue.*.js'
 
-			// Собираем компонентныt js-aфайлы
+			// Собираем компонентны js-файлы
 			,'components/*/*/**.js'
 			,'components/*/*/{*,.*}/**/*.js'
 			,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.js'
