@@ -779,7 +779,7 @@ gulp.task('html', function(done) {
 	}
 });
 // Это системная задача, которая не должна выполняться через консоль
-// Есть гепотиза, что если дать ей имя с префиксом в виде двух дефисов
+// Есть гипотеза, что если дать ей имя с префиксом в виде двух дефисов
 // то интерпретатор команд не сможет скормить gulp-у --html-nunjucks
 // как имя задачи, ибо "--agrument-name" интерпретируется как аргумент getopts
 // а значит будет разрешено только внутреннее использование
@@ -796,12 +796,29 @@ gulp.task('--html-nunjucks', function() {
 			htmlTaskCurrentFile = getRelPathByChanged(file);
 		}))
 		.pipe(data(function(file) {
-			var currentFile = getRelPathByChanged(file);
+			function fixSlashes(strPath) {
+				return strPath
+					.replace('\\', '/')
+					.replace('///', '/')
+					.replace('//', '/')
+			}
+			const currentFile = getRelPathByChanged(file);
+			const currentDir = fixSlashes(path.dirname(currentFile));
+			const layoutDocumentRoot = path.relative('/'+currentDir, '/');
+			const layoutSiteTemplatePath = layoutDocumentRoot;
+			const layoutSiteDir = fixSlashes(layoutDocumentRoot+'/'+conf.html.dest+'/');
+			const layoutImagesDir = fixSlashes(layoutSiteTemplatePath+'/'+conf.images.dest);
+			const layoutComponentsBase = fixSlashes(layoutSiteTemplatePath+'/components');
 			return {
-				PRODUCTION: conf.production
-				,CSS_BUNDLE_FILES: cssBundleFiles
-				,__PAGE__: currentFile
-				,__PATH__: path.dirname(currentFile)
+				PRODUCTION: conf.production,
+				CSS_BUNDLE_FILES: cssBundleFiles,
+				__PAGE__: currentFile,
+				__PATH__: currentDir,
+				DOC_ROOT: layoutDocumentRoot,
+				SITE_DIR: layoutSiteDir,
+				SITE_TEMPLATE_PATH: layoutSiteTemplatePath,
+				IMG_DIR: layoutImagesDir,
+				CMP_BASE: layoutComponentsBase
 			};
 		}))
 		.pipe(nunjucksRender({
