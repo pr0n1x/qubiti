@@ -51,6 +51,10 @@ const
 	,gbuffer = require('gulp-buffer')
 	,browserify = require('browserify')
 	,browserifyResolveShimify = require('resolve-shimify');
+
+	// вся эта хрень вполне ставится в самом шаблоне
+	// и нет никакой надобности захламлять qubity этими зависимостями
+	// но для примера использования пускай тут лежит этот коммент
 	// ,gbrowserify = require('gulp-browserify')
 	// ,babelify = require('babelify')
 	// ,vueify = require('vueify')
@@ -102,7 +106,14 @@ var conf = {
 		// Вообще не собирать файл bundle[.min].css
 		// Но после окончания работ надо не забывать собрать бандл руками
 		// опция в консоли: --dev-no-build-css-bundle-file
-		no_build_css_bundle_file: false
+		no_build_css_bundle_file: false,
+
+		// Иногда разумно использовать такие плагины browserify
+		// как hmr и/или watchify, соответственно для избежания всяких гонок,
+		// даем возможность вырубить gulp-watcher для js-bundle-ов.
+		// Да и вообще hmr и watchify для сборки именно js-bunlde-ов
+		// будут в разы (если не в 10-ки раз) быстрее.
+		js_bundle_no_watching: false
 	}
 	,browserSync: {
 		server: './'
@@ -347,6 +358,10 @@ if( typeof(gutil.env['dev-no-bsync-css-bundle-file']) != 'undefined' ) {
 }
 if( typeof(gutil.env['dev-no-build-css-bundle-file']) != 'undefined' ) {
 	conf.dev_mode.no_build_css_bundle_file = parseArgAsBool(gutil.env['dev-no-build-css-bundle-file']);
+}
+
+if( typeof(gutil.env['js-bundle-no-watching']) != 'undefined' ) {
+	conf.dev_mode.js_bundle_no_watching = parseArgAsBool(gutil.env['js-bundle-no-watching']);
 }
 
 function parseArgAsBool(value) {
@@ -1493,8 +1508,10 @@ gulp.task('add-watchers', function (done) {
 	watchers.push(gulp.watch(conf.less.components.watch, WATCH_OPTIONS, function(changed) {
 		return lessWatcher(changed, 'components');
 	}));
-	watchers.push(gulp.watch(conf.js.bundle.watch, WATCH_OPTIONS, ['js-bundle']));
-	watchers.push(gulp.watch(conf.js.vendor.src, WATCH_OPTIONS, ['js-vendor-bundle']));
+	if( ! conf.dev_mode.js_bundle_no_watching ) {
+		watchers.push(gulp.watch(conf.js.bundle.watch, WATCH_OPTIONS, ['js-bundle']));
+		watchers.push(gulp.watch(conf.js.vendor.src, WATCH_OPTIONS, ['js-vendor-bundle']));
+	}
 	watchers.push(gulp.watch(conf.js.scripts, WATCH_OPTIONS, function(changed) {
 		return jsScriptsWatcher(changed);
 	}));
