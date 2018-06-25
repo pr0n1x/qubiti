@@ -1077,58 +1077,88 @@ function tapExternalizeBroserifySourceMap(bundleDir) {
  * @task {js-bundle}
  * @order {7}
  */
-gulp.task('js-bundle', function() {
-	debugger;
-	var stream = merge();
-	var bundleDir = path.dirname(conf.js.bundle.out);
-	stream.add(gulp.src(conf.js.bundle.src, {dot: true, base: '.'})
-		.pipe(conf.debug ? debug({title: 'js bundle src:'}) : gutil.noop())
-		.pipe(plumber())
-		.pipe(tap(function(file) {
-			var  bundleSrcFile = getRelPathByChanged(file)
-				,bundleName = path.basename(bundleSrcFile)
-					.replace(/^_/, '')
-					.replace(/\.js$/, '')
-				,bundleFile = path.basename(conf.js.bundle.out)
-					.replace( /\*/, bundleName )
-				;
-			//gutil.log(bundleName+': '+gutil.colors.blue(bundleDir+'/'+bundleFile));
-			if(bundleName == 'vendor') {
-				gutil.log(gutil.colors.bgRed(
-					'Bundle name "vendor" was reserved. Please rename file "'+bundleSrcFile+'"'
-				));
-			}
-			else {
-				var bfy = browserify({
-						entries: bundleSrcFile,
-						debug: true
-						//paths: ['./node_modules', './js/src']
-					})
-					// .transform(babelify, {
-					// 	presets: [
-					// 		babelPresetEnv,
-					// 		babelPresetStage2
-					// 	]
-					// })
-					// .transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
-					// .transform(vueify)
+gulp.task('js-bundle', async function(doneTask) {
+	return new Promise(async function(finishTaskLockPromise, rejectTaskLockPromise) {
+		var streams = merge();
+		var bundleDir = path.dirname(conf.js.bundle.out);
+		var srcFilesStream = gulp.src(conf.js.bundle.src, {dot: true, base: '.'})
+			//.pipe(conf.debug ? debug({title: 'js bundle src:'}) : gutil.noop())
+			.pipe(plumber())
+			.pipe(tap(function(file) {
+				var  bundleSrcFile = getRelPathByChanged(file)
+					,bundleName = path.basename(bundleSrcFile)
+						.replace(/^_/, '')
+						.replace(/\.js$/, '')
+					,bundleFile = path.basename(conf.js.bundle.out)
+						.replace( /\*/, bundleName )
 					;
-				var bundleStream = bfy.bundle()
-					.pipe(vsource(bundleFile))
-					.pipe(plumber())
-					.pipe(gbuffer())
-					.on('error', swallowError)
-					.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
-					.pipe(gulp.dest(bundleDir));
-				stream.add(jsScriptsCommonStreamHandler(
-					bundleStream,
-					bundleDir,
-					conf.debug ? 'js-bundle "'+bundleName+'":' : ''
-				));
-			}
+				//gutil.log(bundleName+': '+gutil.colors.blue(bundleDir+'/'+bundleFile));
+				if(bundleName == 'vendor') {
+					gutil.log(gutil.colors.bgRed(
+						'Bundle name "vendor" was reserved. Please rename file "'+bundleSrcFile+'"'
+					));
+				}
+				else {
+					var bfy = browserify({
+							entries: bundleSrcFile,
+							debug: true
+							//paths: ['./node_modules', './js/src']
+						})
+						// .transform(babelify, {
+						// 	presets: [
+						// 		babelPresetEnv,
+						// 		babelPresetStage2
+						// 	]
+						// })
+						// .transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
+						// .transform(vueify)
+						;
+					var bundleStream = bfy.bundle()
+						.pipe(vsource(bundleFile))
+						.pipe(plumber())
+						.pipe(gbuffer())
+						.on('error', swallowError)
+						.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
+						.pipe(tap(function(file) {
+							file.bundleName = bundleName;
+							file.bundleFile = bundleFile;
+							file.bundleSrcFile = bundleSrcFile;
+							file.debugTitle = 'js-bundle "'+bundleName+'": '
+								+gutil.colors.blue(bundleSrcFile+' -> '+bundleFile)
+							;
+						}))
+						.pipe(gulp.dest(bundleDir))
+					;
+					// stream.add(jsScriptsCommonStreamHandler(
+					// 	bundleStream,
+					// 	bundleDir,
+					// 	conf.debug ? 'js-bundle "'+bundleName+'":' : ''
+					// ));
+					streams.add(bundleStream);
+				}
+			}));
+		// srcFilesStream.on('end', async function() {});
+		jsScriptsCommonStreamHandler(streams, bundleDir)
+		.pipe(tap(function(file) {
+			// tap() убирать отсюда нельзя.
+			// Он делает какое-то преобразование со stream-ом,
+			// после которого метод on('end') начинает исполняться корректно  
+
+			// console.log('## debug ##', {
+			// 	path: file.path,
+			// 	bundleName: file.bundleName,
+			// 	bundleFile: file.bundleFile,
+			// 	bundleSrcFile: file.bundleSrcFile
+			// });
 		}))
-	);
-	return stream;
+		.on('end', function() {
+			finishTaskLockPromise();
+		})
+		.on('error', function(err) {
+			gutil.log('Error:', err);
+			rejectTaskLockPromise(err);
+		});
+	});
 });
 
 /**
@@ -1233,13 +1263,19 @@ function jsScriptsCommonStreamHandler(stream, dest, debugTitle) {
 	}
 	return stream
 		.pipe(plumber())
+		.pipe(tap(function(file) {
+			if( typeof(file.debugTitle) == 'string' ) {
+				gutil.log(file.debugTitle);
+			}
+		}))
 		.pipe(sourcemaps.init({loadMaps: true}))
 		.pipe(uglify())
 		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
+		.pipe(browserSyncStream()) // update target unminified file
 		.pipe(rename({extname: '.min.js'}))
 		.pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: '.' }))
 		.pipe(gulp.dest(dest))
-		.pipe(browserSyncStream())
+		.pipe(browserSyncStream()) // update minfied and map files
 		.on('end', onTaskEnd)
 	;
 }
