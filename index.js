@@ -535,6 +535,7 @@ function lessCommonPipe(stream, dest, debugTitle) {
 		.pipe(sourcemaps.init())
 		.pipe(less())
 		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
+		.pipe(browserSyncStream()) // update target unminified css-file
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
 		//.pipe(autoprefixer())
@@ -550,7 +551,7 @@ function lessCommonPipe(stream, dest, debugTitle) {
 
 		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
 		.pipe(gulp.dest(dest))
-		.pipe(browserSyncStream())
+		.pipe(browserSyncStream()) // update .min.css, .map and .min.css.map files
 		.on('end', onTaskEnd)
 	;
 	return stream;
@@ -581,8 +582,7 @@ function lessWatcher(changedFile, target) {
 					throw 'lesscss file out of configured less dir: "'+filePath+'"';
 				}
 				relLessFilePath = conf.less.main.dest+'/'+substr(filePath, lessDir.length+1);
-				relLessFilePath = relLessFilePath
-					.trim()
+				relLessFilePath = relLessFilePath.trim()
 					.replace(/\/\//g, '/')
 					.replace(/\.less$/, '.css');
 				if( null !== cssBundleFiles
