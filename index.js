@@ -15,7 +15,7 @@ const
 	os = require('os')
 	,fs = require('fs')
 	,extend = require('extend')
-	,path = require('path')
+	,Path = require('path')
 	,decodeKeypress = require('decode-keypress')
 	,del = require('del')
 	,envify = require('envify/custom')
@@ -45,7 +45,9 @@ const
 	,spritesmith = require('gulp.spritesmith')
 	,merge = require('merge-stream')
 	,runSequence = require('run-sequence').use(gulp)
+	,Stream = require('stream')
 	,through = require('through')
+	,through2 = require('through2')
 	,vbuffer = require('vinyl-buffer')
 	,vsource = require('vinyl-source-stream')
 	,gbuffer = require('gulp-buffer')
@@ -438,6 +440,15 @@ var isArray = (function () {
 	};
 }());
 
+function parsePath(path) {
+	var extname = Path.extname(path);
+	return {
+		dirname: Path.dirname(path),
+		basename: Path.basename(path, extname),
+		extname: extname
+	};
+}
+
 var browserSyncReloadIsActive = true;
 function switchBroserSync(state) {
 	if( state instanceof Boolean ) {
@@ -481,14 +492,15 @@ gulp.task('less-main', function() {
 gulp.task('less-main-bundle', function(done) {
 	runSequence('less-main', 'css-bundle', done);
 });
-gulp.task('less-components', function(done) {
+gulp.task('less-components', function(doneTask) {
 	return lessCommonPipe(
 		gulp.src(conf.less.components.files, {dot: true, base: '.'}),
 		'.',
-		conf.debug ? 'component less:' : ''
+		conf.debug ? 'component less:' : '',
+		doneTask
 	);
 });
-function lessCommonPipe(stream, dest, debugTitle) {
+function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 	var debugMode = true;
 	if( 'string' != typeof(debugTitle)
 		|| '' == debugTitle
@@ -498,12 +510,12 @@ function lessCommonPipe(stream, dest, debugTitle) {
 
 	function mapSources(sourcePath, file) {
 		var compileFilePath = file.path.replace(conf.curDir+'/', '');
-		var compileFileName = path.basename(compileFilePath);
-		var compileDir = path.dirname(compileFilePath);
+		var compileFileName = Path.basename(compileFilePath);
+		var compileDir = Path.dirname(compileFilePath);
 
-		var srcFileName = path.basename(sourcePath);
-		var srcFileDir = path.dirname(sourcePath);
-		var upToRoot = path.relative('/'+compileDir, '/');
+		var srcFileName = Path.basename(sourcePath);
+		var srcFileDir = Path.dirname(sourcePath);
+		var upToRoot = Path.relative('/'+compileDir, '/');
 
 		var resultSrc = upToRoot+'/'+compileDir+'/'+sourcePath;
 		if( dest == '.' || dest == './' || dest == '.\\' ) {
@@ -523,42 +535,67 @@ function lessCommonPipe(stream, dest, debugTitle) {
 		return resultSrc;
 	}
 
-	const filterOutMapFiles = filter(
-		function(file) {
-			return '.map' !== file.path.substring(file.path.length-4, file.path.length);
-		},
-		{restore: true}
-	);
+	// function isMapFile(file) {
+	// 	return '.map' === file.path.substring(file.path.length-4, file.path.length);
+	// }
 
-	stream.pipe(plumber())
+	return stream.pipe(plumber())
 		.pipe(rename({extname: '.less'}))
 		.pipe(sourcemaps.init())
 		.pipe(less())
-		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
-		.pipe(browserSyncStream()) // update target unminified css-file
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
 		//.pipe(autoprefixer())
-
 		.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
+		.pipe(tap(function(file, t) {
+			let parsedPath = parsePath(file.relative);
+			if(debugMode) {
+				gutil.log(debugTitle+' compile: '+gutil.colors.blue(
+					parsedPath.dirname+Path.sep
+					+' { '+parsedPath.basename
+					+(('.css' === parsedPath.extname) ? '.less' : '')
+					+' -> '
+					+parsedPath.basename+parsedPath.extname+' } '
+				));
+			}
+		}))
 		.pipe(gulp.dest(dest))
-
-		.pipe(filterOutMapFiles)
-		.pipe(rename({extname: '.min.css'}))
-		.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
-		.pipe(sourcemaps.write('.', { includeContent: true }))
-		.pipe(filterOutMapFiles.restore)
-
-		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
-		.pipe(gulp.dest(dest))
-		.pipe(browserSyncStream()) // update .min.css, .map and .min.css.map files
-		.on('end', onTaskEnd)
+		.pipe(browserSyncStream()) // update target unminified css-file and its map
+		.pipe(tap(function(cssFile, t) {
+			if( Path.extname(cssFile.relative) == '.css') {
+				if( ! fs.existsSync(cssFile.path) ) {
+					gutil.log(gutil.colors.red('css file '+cssFile.relative+' not ready yet.'));
+				}
+				gulp.src(cssFile.path, {dot: true, base: cssFile.base})
+					.pipe(tap(function(file) {
+						file.sourceMap = cssFile.sourceMap;
+					}))
+					.pipe(rename({extname: '.min.css'}))
+					.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
+					.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
+					.pipe(tap(function(file, t) {
+						if(debugMode) {
+							let parsedPath = parsePath(file.relative);
+							gutil.log(debugTitle+'  minify: '+gutil.colors.blue(
+								parsedPath.dirname+Path.sep
+								+' { '+Path.basename(parsedPath.basename, '.min')
+								+(('.map' === parsedPath.extname) ? '': '.css')
+								+' -> '
+								+parsedPath.basename+parsedPath.extname+' } '
+							));
+						}
+						//return t.through(gulp.dest, [dest]);
+					}))
+					.pipe(gulp.dest(dest))
+					.pipe(browserSyncStream()) // update .min.css, .min.css.map files
+				;
+			}
+		}))
 	;
-	return stream;
 }
 function lessWatcher(changedFile, target) {
 	var file = getRelPathByChanged(changedFile)
-		,fileName = path.basename(file)
+		,fileName = Path.basename(file)
 		,stream = null
 		,dest = null
 		,targetTitle = null
@@ -595,7 +632,7 @@ function lessWatcher(changedFile, target) {
 			if(conf.debug) gutil.log('less watcher: '+gutil.colors.blue(file));
 			break;
 		case 'components':
-			dest = path.dirname(file);
+			dest = Path.dirname(file);
 			stream = gulp.src(dest+'/'+conf.less.components.styleName, {dot: true});
 			if(conf.debug) gutil.log(
 				'less watcher: '
@@ -614,8 +651,8 @@ function lessWatcher(changedFile, target) {
 		default:
 			throw 'less-watcher: wrong watcher target';
 	}
-	lessCommonPipe(stream, dest, conf.debug ? 'less watcher:' : '');
-	return stream;
+
+	return lessCommonPipe(stream, dest, conf.debug ? 'less watcher:' : '');
 }
 
 /**
@@ -658,7 +695,7 @@ gulp.task('css-bundle', function() {
 							.replace(/\/\//g, '/')
 							.replace(/^\//, '')
 							.replace(/\/$/, '');
-						var cssSrcDir = path.dirname(cssFile).trim();
+						var cssSrcDir = Path.dirname(cssFile).trim();
 						var dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
 						dest = dest
 							.replace(/\\/g, '/')
@@ -666,7 +703,7 @@ gulp.task('css-bundle', function() {
 							.replace(/\/\//g, '/')
 							.replace(/^\//, '')
 							.replace(/\/$/, '');
-						var stepsToRootFromDest = path.relative('/'+dest, '/');
+						var stepsToRootFromDest = Path.relative('/'+dest, '/');
 						var urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
 
 						file.contents = new Buffer(
@@ -689,8 +726,8 @@ gulp.task('css-bundle', function() {
 					.pipe(gulp.dest(conf.less.main.dest))
 					.pipe(tap(function(file) {
 						var relFilePath = getRelPathByChanged(file);
-						if(path.extname(relFilePath) === '.css') {
-							var dest = path.dirname(relFilePath);
+						if(Path.extname(relFilePath) === '.css') {
+							var dest = Path.dirname(relFilePath);
 							stream.add(gulp.src(relFilePath)
 								.pipe(sourcemaps.init({loadMaps: true}))
 								.pipe(rename({extname: '.min.css'}))
@@ -740,7 +777,7 @@ function parseCssBundleImportList(afterParseCallback) {
 	return gulp.src(conf.less.main.bundle)
 		.pipe(conf.debug ? debug({title: 'css bundle:'}) : gutil.noop())
 		.pipe(tap(function(file) {
-			var bundleName = path.basename(file.path)
+			var bundleName = Path.basename(file.path)
 				.replace(/^_/, '')
 				.replace(/\.(less|css)$/i, '');
 			var relBundleFilePath = getRelPathByChanged(file);
@@ -752,7 +789,7 @@ function parseCssBundleImportList(afterParseCallback) {
 				.replace(/^\/\/(.*)/gim, '') // remove line comments
 				.replace(/\/\*[\s\S]*?\*\/\n?/gim, '') // remove multi line comments
 				.match(regim);
-			if( matchedStringList.length > 0 ) {
+			if( typeof(matchedStringList) == 'array' && matchedStringList.length > 0 ) {
 				for(var iMatched=0; iMatched < matchedStringList.length; iMatched++) {
 					var matchedString = matchedStringList[iMatched].trim();
 					var match = matchedString.match(rei);
@@ -818,8 +855,8 @@ gulp.task('--html-nunjucks', function() {
 					.replace('//', '/')
 			}
 			const currentFile = getRelPathByChanged(file);
-			const currentDir = fixSlashes(path.dirname(currentFile));
-			const layoutDocumentRoot = path.relative('/'+currentDir, '/');
+			const currentDir = fixSlashes(Path.dirname(currentFile));
+			const layoutDocumentRoot = Path.relative('/'+currentDir, '/');
 			const layoutSiteTemplatePath = layoutDocumentRoot;
 			const layoutSiteDir = fixSlashes(layoutDocumentRoot+'/'+conf.html.dest+'/');
 			const layoutImagesDir = fixSlashes(layoutSiteTemplatePath+'/'+conf.images.dest);
@@ -1055,7 +1092,7 @@ gulp.task('js', function(done) {
  */
 function tapExternalizeBroserifySourceMap(bundleDir) {
 	return function(file) {
-		var mapFileName = path.basename(file.path)+'.map';
+		var mapFileName = Path.basename(file.path)+'.map';
 		var mapFilePath = conf.curDir+'/'+bundleDir+'/'+mapFileName;
 		var src = file.contents.toString();
 		var converter = convertSourceMap.fromSource(src);
@@ -1068,7 +1105,7 @@ function tapExternalizeBroserifySourceMap(bundleDir) {
 		);
 		file.contents = new Buffer(
 			convertSourceMap.removeComments(src).trim()
-			+ '\n//# sourceMappingURL=' + path.basename(mapFilePath)
+			+ '\n//# sourceMappingURL=' + Path.basename(mapFilePath)
 		);
 	};
 }
@@ -1080,16 +1117,16 @@ function tapExternalizeBroserifySourceMap(bundleDir) {
 gulp.task('js-bundle', async function(doneTask) {
 	return new Promise(async function(finishTaskLockPromise, rejectTaskLockPromise) {
 		var streams = merge();
-		var bundleDir = path.dirname(conf.js.bundle.out);
+		var bundleDir = Path.dirname(conf.js.bundle.out);
 		var srcFilesStream = gulp.src(conf.js.bundle.src, {dot: true, base: '.'})
 			//.pipe(conf.debug ? debug({title: 'js bundle src:'}) : gutil.noop())
 			.pipe(plumber())
 			.pipe(tap(function(file) {
 				var  bundleSrcFile = getRelPathByChanged(file)
-					,bundleName = path.basename(bundleSrcFile)
+					,bundleName = Path.basename(bundleSrcFile)
 						.replace(/^_/, '')
 						.replace(/\.js$/, '')
-					,bundleFile = path.basename(conf.js.bundle.out)
+					,bundleFile = Path.basename(conf.js.bundle.out)
 						.replace( /\*/, bundleName )
 					;
 				//gutil.log(bundleName+': '+gutil.colors.blue(bundleDir+'/'+bundleFile));
@@ -1167,8 +1204,8 @@ gulp.task('js-bundle', async function(doneTask) {
  * @order {8}
  */
 gulp.task('js-vendor-bundle', function() {
-	var bundleDir = path.dirname(conf.js.vendor.out)
-		,bundleFile = path.basename(conf.js.vendor.out);
+	var bundleDir = Path.dirname(conf.js.vendor.out)
+		,bundleFile = Path.basename(conf.js.vendor.out);
 	var bfy = browserify(
 		conf.curDir+'/'+conf.js.vendor.src,
 		{
@@ -1281,8 +1318,8 @@ function jsScriptsCommonStreamHandler(stream, dest, debugTitle) {
 }
 function jsScriptsWatcher(changedFile) {
 	var file = getRelPathByChanged(changedFile)
-		,dest = path.dirname(file)
-		,fileName = path.basename(file)
+		,dest = Path.dirname(file)
+		,fileName = Path.basename(file)
 		,filterSrcMaps = filter('*.js.map', {restore: true})
 		,fileStat = fs.lstatSync(changedFile.path)
 	;
@@ -1380,7 +1417,7 @@ gulp.task('sprites', function(done) {
 			}))
 			// Убираем из less файлов лишнее и выделяем миксины в отдельный файл
 			.pipe(tap(function(file) {
-				if(path.extname(file.path) === '.less') {
+				if(Path.extname(file.path) === '.less') {
 					var fileContent = file.contents.toString();
 					// remove line comments
 					fileContent = fileContent.replace(/^\/\/(.*)/gmi, '');
@@ -1398,8 +1435,8 @@ gulp.task('sprites', function(done) {
 						matches.forEach(function(text) {
 							mixinsContent += text+'\n';
 						});
-						var lessMixinsFileName = path.basename(conf.sprites.dest.lessMixins)
-							,lessMixinsDir = path.dirname(conf.sprites.dest.lessMixins)
+						var lessMixinsFileName = Path.basename(conf.sprites.dest.lessMixins)
+							,lessMixinsDir = Path.dirname(conf.sprites.dest.lessMixins)
 							,lessMixinsSpriteStream = vsource(lessMixinsFileName)
 							,lessMixinsSpriteStreamEnd = lessMixinsSpriteStream
 						;
@@ -1432,7 +1469,7 @@ gulp.task('sprites', function(done) {
 			.pipe((!conf.sprites.minify)?gutil.noop():tap(function(file) {
 				// берем уже сохраненный файл в новый стрим
 				var relFilePath = getRelPathByChanged(file)
-					,destDir = path.dirname(relFilePath)
+					,destDir = Path.dirname(relFilePath)
 				return gulp.src(relFilePath, {dot: true})
 					.pipe(imagemin())
 					.pipe(gulp.dest(destDir))
