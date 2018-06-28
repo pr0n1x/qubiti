@@ -789,7 +789,7 @@ function parseCssBundleImportList(afterParseCallback) {
 				.replace(/^\/\/(.*)/gim, '') // remove line comments
 				.replace(/\/\*[\s\S]*?\*\/\n?/gim, '') // remove multi line comments
 				.match(regim);
-			if( typeof(matchedStringList) == 'array' && matchedStringList.length > 0 ) {
+			if( typeof(matchedStringList) == 'object' && matchedStringList.length > 0 ) {
 				for(var iMatched=0; iMatched < matchedStringList.length; iMatched++) {
 					var matchedString = matchedStringList[iMatched].trim();
 					var match = matchedString.match(rei);
