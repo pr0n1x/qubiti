@@ -1114,7 +1114,7 @@ function tapExternalizeBroserifySourceMap(bundleDir) {
  * @task {js-bundle}
  * @order {7}
  */
-gulp.task('js-bundle', async function(doneTask) {
+gulp.task('js-bundle', function(doneTask) {
 	return new Promise(async function(finishTaskLockPromise, rejectTaskLockPromise) {
 		var streams = merge();
 		var bundleDir = Path.dirname(conf.js.bundle.out);
