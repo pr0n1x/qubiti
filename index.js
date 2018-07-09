@@ -571,8 +571,6 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 						file.sourceMap = cssFile.sourceMap;
 					}))
 					.pipe(rename({extname: '.min.css'}))
-					.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
-					.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
 					.pipe(tap(function(file, t) {
 						if(debugMode) {
 							let parsedPath = parsePath(file.relative);
@@ -584,8 +582,9 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 								+parsedPath.basename+parsedPath.extname+' } '
 							));
 						}
-						//return t.through(gulp.dest, [dest]);
 					}))
+					.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
+					.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
 					.pipe(gulp.dest(dest))
 					.pipe(browserSyncStream()) // update .min.css, .min.css.map files
 				;
