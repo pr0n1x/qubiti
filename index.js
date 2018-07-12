@@ -1218,40 +1218,47 @@ gulp.task('js-vendor-bundle', function() {
 			]
 		}
 	);
+	var bfyReqShimsExists = false;
 	var bfyReqShims = {};
 	function addRequireResoverShim(reqLib, libPath) {
 		if( '.js' == libPath.substring(libPath.length-3, libPath.length) ) {
-			//console.log(reqLib+' => '+packageJson.browser[reqLib]);
+			//onsole.log('shim: '+reqLib+' => '+packageJson.browser[reqLib]);
 			bfyReqShims[reqLib] = conf.curDir+'/'+libPath;
+			bfyReqShimsExists = true;
 		}
 	}
-	var packageJson = require(conf.curDir+'/package.json');
-	if( typeof(packageJson['browserify-shim']) != 'undefined') {
-		for(var bfyShimLib in packageJson['browserify-shim']) {
-			addRequireResoverShim(bfyShimLib, packageJson['browserify-shim'][bfyShimLib]);
+	if( fs.existsSync(conf.curDir+'/package.json') ) {
+		var packageJson = require(conf.curDir+'/package.json');
+		if( typeof(packageJson['browserify-shim']) != 'undefined') {
+			for(var bfyShimLib in packageJson['browserify-shim']) {
+				addRequireResoverShim(bfyShimLib, packageJson['browserify-shim'][bfyShimLib]);
+			}
+		}
+		if( typeof(packageJson['browser']) != 'undefined') {
+			for(var browserShimLib in packageJson.browser) {
+				addRequireResoverShim(browserShimLib, packageJson.browser[browserShimLib]);
+			}
 		}
 	}
-	if( typeof(packageJson['browser']) != 'undeofined') {
-		for(var browserShimLib in packageJson.browser) {
-			addRequireResoverShim(browserShimLib, packageJson.browser[browserShimLib]);
+	if( bfyReqShimsExists ) {
+		for(var confShimLib in conf.js.vendor.shim) {
+			bfyReqShims[confShimLib] = conf.curDir+'/'+conf.js.vendor.shim[confShimLib];
 		}
+		//onsole.log(bfyReqShims);
+		bfy.plugin(browserifyResolveShimify, bfyReqShims);
 	}
-	for(var confShimLib in conf.js.vendor.shim) {
-		bfyReqShims[confShimLib] = conf.curDir+'/'+conf.js.vendor.shim[confShimLib];
-	}
-	//onsole.log(bfyReqShims);
+	// bfy.transform(babelify.configure(babelConfig), babelConfig)
+	// 	.transform(vueify, { babel: babelConfig })
+	// 	.transform(babelify)
+	// 	.transform(vueify)
+	// 	.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}));
 
-	bfy.plugin(browserifyResolveShimify, bfyReqShims);
-		// .transform(babelify.configure(babelConfig), babelConfig)
-		// .transform(vueify, { babel: babelConfig })
-		// .transform(babelify)
-		// .transform(vueify)
-		// .transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}));
 	// if(conf.debug) {
 	// 	bfy.on('transform', function(tr, src) {
 	// 		gutil.log(gutil.colors.blue('browserify transform: '+src));
 	// 	})
 	// }
+	
 	function handleBrowserifyBundler(err) {
 		if(err) {
 			gutil.log(
@@ -1263,8 +1270,8 @@ gulp.task('js-vendor-bundle', function() {
 	}
 	var bundleStream = bfy.bundle(handleBrowserifyBundler)
 		.pipe(vsource(bundleFile))
-		.pipe(rename(bundleFile))
 		.pipe(vbuffer())
+		.pipe(rename(bundleFile))
 		.pipe(plumber())
 		.on('error', swallowError)
 		.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
