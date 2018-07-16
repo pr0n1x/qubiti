@@ -1577,6 +1577,44 @@ gulp.task('watch', function(done) {
 		runSequence('css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
 	}
 });
+
+gulp.task('build-less-imports-tree', function() {
+	let compilationTargets = {};
+	let dependencies = {};
+	// return gulp.src(conf.less.main.watchImports, {dot: true, base: '.'})
+	return gulp.src(conf.less.main.files, {dot: true, base: '.'})
+	// return gulp.src(conf.less.components.files, {dot: true, base: '.'})
+		.pipe(tap(function(file) {
+			compilationTargets[file.path] = {dependsFrom: []};
+			let lessCode = file.contents.toString();
+			//onsole.log('file', file.path);
+
+			let dir = Path.dirname(file.path);
+			let fileName = Path.basename(file.path);
+
+			let regImport_gim = /@import[\s]*((?:\([a-zA-Z]+\))?)[\s]*['"](.*?)['"][\s]*;/gim;
+			let regImport     = /@import[\s]*((?:\([a-zA-Z]+\))?)[\s]*['"](.*?)['"][\s]*;/i;
+			let matches = lessCode.match(regImport_gim);
+			if( null != matches ) {
+				matches.forEach(function(matchedImport) {
+					let matchParts = matchedImport.match(regImport);
+					let importFilePath = matchParts[2].trim();
+					if( ! /(\.less|\.css)$/.test(importFilePath) ) {
+						importFilePath += '.less';
+					}
+					let dep = Path.resolve(dir, importFilePath);
+					//onsole.log('import:', dep);
+					compilationTargets[file.path].dependsFrom.push(dep);
+					dependencies[dep] = {dependencyOf: file.path};
+				});
+			}
+		}))
+		.on('end', function() {
+			console.log('dependencies', dependencies);
+		})
+	;
+})
+
 gulp.task('add-watchers', function (done) {
 	watchers.push(gulp.watch(conf.html.watch, WATCH_OPTIONS, ['html']));
 	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, ['less-main-bundle']));
