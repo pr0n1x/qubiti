@@ -53,7 +53,8 @@ const
 	,gbuffer = require('gulp-buffer')
 	,browserify = require('browserify')
 	,browserifyResolveShimify = require('resolve-shimify')
-	,lodashAssign = require('lodash.assign');
+	,lodashAssign = require('lodash.assign')
+	,minimatch = require('minimatch');
 
 	// вся эта хрень вполне ставится в самом шаблоне
 	// и нет никакой надобности захламлять qubity этими зависимостями
@@ -1564,23 +1565,6 @@ gulp.task('build', function(done) {
 	);
 });
 
-/**
- * Запуск интерактивного режима с наблюдением за файлами
- * и пересборкой при изменении, но без запуска веб-сервера
- * @task {watch}
- * @order {13}
- */
-var watchers = [];
-const WATCH_OPTIONS = {cwd: './'};
-gulp.task('watch', function(done) {
-	isInteractiveMode = true;
-	if( watchers.length > 0 ) {
-		runSequence('remove-watchers', 'css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
-	}
-	else {
-		runSequence('css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
-	}
-});
 
 function parseLessDependencies(src, treePath, deepDependenciesIndex, dependencyCache) {
 	// let _debug = function() { console.log('', ...arguments); };
@@ -1686,7 +1670,7 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex, dependencyC
 	});
 }
 
-gulp.task('build-less-imports-tree', function() {
+gulp.task('test-less-imports-tree', function() {
 	// let src = conf.less.main.watchImports;
 	// let src = conf.less.main.files;
 	// let src = conf.less.components.files;
@@ -1701,11 +1685,85 @@ gulp.task('build-less-imports-tree', function() {
 	});
 });
 
+/**
+ * Запуск интерактивного режима с наблюдением за файлами
+ * и пересборкой при изменении, но без запуска веб-сервера
+ * @task {watch}
+ * @order {13}
+ */
+var watchers = [];
+const WATCH_OPTIONS = {cwd: './'};
+var lessDeepDependenciesIndex = {};
+gulp.task('watch', function(done) {
+	isInteractiveMode = true;
+	if( watchers.length > 0 ) {
+		runSequence('remove-watchers', 'css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
+	}
+	else {
+		runSequence('css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
+	}
+});
+
+
 gulp.task('add-watchers', async function (done) {
+	// html
 	watchers.push(gulp.watch(conf.html.watch, WATCH_OPTIONS, ['html']));
+
+	// less-css
 	//watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, ['less-main-bundle']));
-	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, function() {
-		
+	let allLessSrc = conf.less.components.files.concat(conf.less.main.files);
+	lessDeepDependenciesIndex = (await parseLessDependencies(allLessSrc)).deepDependenciesIndex;
+	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, function(changed) {
+		if( typeof(lessDeepDependenciesIndex[changed.path]) == 'object'
+			&& Array.isArray(lessDeepDependenciesIndex[changed.path])
+			&& lessDeepDependenciesIndex[changed.path].length > 0
+		) {
+			let metchedComponentFiles = [];
+			let matchedMainFiles = [];
+			lessDeepDependenciesIndex[changed.path].forEach(function(dependentFile) {
+				let dependentFileRelPath = getRelPathByChanged({path: dependentFile});
+				let matchedMain = false;
+				let filteredMain = false;
+				let matchedComponent = false;
+				let filteredComponent = false;
+				for(let mainFilePatternKey=0; mainFilePatternKey < conf.less.main.files.length; mainFilePatternKey++) {
+					let mainFilePattern = conf.less.main.files[mainFilePatternKey];
+					if( minimatch(dependentFileRelPath, mainFilePattern, {flipNegate: true}) ) {
+						if(mainFilePattern[0] == '!') {
+							filteredMain = true;
+							break;
+						}
+						else {
+							matchedMain = true;
+						}
+					}
+				}
+				for(let patternKey=0; patternKey < conf.less.components.files.length; patternKey++) {
+					let componentPattern = conf.less.components.files[patternKey];
+					if( minimatch(dependentFileRelPath, componentPattern, {flipNegate: true}) ) {
+						if(componentPattern[0] == '!') {
+							filteredComponent = true;
+							break;
+						}
+						else {
+							matchedComponent = true;
+						}
+					}
+				}
+				if( matchedMain && ! filteredMain ) {
+					matchedMainFiles.push(dependentFile);
+				}
+				if( matchedComponent && ! filteredComponent ) {
+					metchedComponentFiles.push(dependentFile);
+				}
+			});
+			matchedMainFiles.forEach(function(fileFullPath) {
+				lessWatcher({path: fileFullPath}, 'main');
+			});
+			metchedComponentFiles.forEach(function(fileFullPath) {
+				lessWatcher({path: fileFullPath}, 'components');
+			});
+		}
 	}));
 	watchers.push(gulp.watch(conf.less.main.bundle, WATCH_OPTIONS, ['css-bundle']));
 	watchers.push(gulp.watch(conf.less.main.files, WATCH_OPTIONS, function(changed) {
@@ -1714,6 +1772,8 @@ gulp.task('add-watchers', async function (done) {
 	watchers.push(gulp.watch(conf.less.components.watch, WATCH_OPTIONS, function(changed) {
 		return lessWatcher(changed, 'components');
 	}));
+
+	// js
 	if( ! conf.dev_mode.js_bundle_no_watching ) {
 		watchers.push(gulp.watch(conf.js.bundle.watch, WATCH_OPTIONS, ['js-bundle']));
 		watchers.push(gulp.watch(conf.js.vendor.src, WATCH_OPTIONS, ['js-vendor-bundle']));
@@ -1721,14 +1781,15 @@ gulp.task('add-watchers', async function (done) {
 	watchers.push(gulp.watch(conf.js.scripts, WATCH_OPTIONS, function(changed) {
 		return jsScriptsWatcher(changed);
 	}));
-	//done(); нет смысле если используем async-функцию
+	//done(); нет смысла если используем async-функцию
 });
 gulp.task('remove-watchers', async function(done) {
+	lessDeepDependenciesIndex = {};
 	watchers.forEach(function(watcher, index) {
 		watcher.end();
 	});
 	watchers = [];
-	//done(); нет смысле если используем async-функцию
+	//done(); нет смысла если используем async-функцию
 });
 /**
  * Слежение за горячими клавишами.
