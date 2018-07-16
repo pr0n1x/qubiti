@@ -52,7 +52,8 @@ const
 	,vsource = require('vinyl-source-stream')
 	,gbuffer = require('gulp-buffer')
 	,browserify = require('browserify')
-	,browserifyResolveShimify = require('resolve-shimify');
+	,browserifyResolveShimify = require('resolve-shimify')
+	,lodashAssign = require('lodash.assign');
 
 	// вся эта хрень вполне ставится в самом шаблоне
 	// и нет никакой надобности захламлять qubity этими зависимостями
@@ -788,7 +789,10 @@ function parseCssBundleImportList(afterParseCallback) {
 				.replace(/^\/\/(.*)/gim, '') // remove line comments
 				.replace(/\/\*[\s\S]*?\*\/\n?/gim, '') // remove multi line comments
 				.match(regim);
-			if( typeof(matchedStringList) == 'object' && matchedStringList.length > 0 ) {
+			if( typeof(matchedStringList) == 'object'
+				&& matchedStringList !== null
+				&& matchedStringList.length > 0
+			) {
 				for(var iMatched=0; iMatched < matchedStringList.length; iMatched++) {
 					var matchedString = matchedStringList[iMatched].trim();
 					var match = matchedString.match(rei);
@@ -1578,23 +1582,52 @@ gulp.task('watch', function(done) {
 	}
 });
 
-gulp.task('build-less-imports-tree', function() {
-	let compilationTargets = {};
+function parseLessDependencies(src, treePath, deepDependenciesIndex, dependencyCache) {
+	// let _debug = function() { console.log('', ...arguments); };
+	let _debug = function() {};
+	if( typeof(treePath) != 'object' || ! Array.isArray(treePath) ) {
+		treePath = [];
+	}
+	if( typeof(deepDependenciesIndex) != 'object' || null === deepDependenciesIndex ) {
+		deepDependenciesIndex = {};
+	}
+	if( typeof(dependencyCache) != 'object' || null === dependencyCache ) {
+		dependencyCache = {};
+	}
+
+	let depth = treePath.length+1;
+	let dependecyOf = (treePath.length > 0)?treePath[treePath.length-1]:'';
+	
 	let dependencies = {};
-	// return gulp.src(conf.less.main.watchImports, {dot: true, base: '.'})
-	return gulp.src(conf.less.main.files, {dot: true, base: '.'})
-	// return gulp.src(conf.less.components.files, {dot: true, base: '.'})
+
+	//_debug('call', arguments);
+
+	return new Promise(function(resolve, reject) {
+		_debug('| '.repeat(depth-1)+'@ RUN PROMISE'+(dependecyOf?' for '+dependecyOf:''));
+		if( depth >= 10 ) {
+			_debug('| '.repeat(depth)+'rejected by depth limit');
+			reject('less imports depth limit succeeded');
+		}
+		
+		gulp.src(src, {dot: true, base: '.'})
 		.pipe(tap(function(file) {
-			compilationTargets[file.path] = {dependsFrom: []};
 			let lessCode = file.contents.toString();
-			//onsole.log('file', file.path);
+			_debug('| '.repeat(depth)+'- file', file.path);
 
 			let dir = Path.dirname(file.path);
 			let fileName = Path.basename(file.path);
+			if( typeof(dependencies[file.path]) != 'object'
+				|| !Array.isArray(dependencies[file.path])
+			) {
+				dependencies[file.path] = [];
+			}
 
 			let regImport_gim = /@import[\s]*((?:\([a-zA-Z]+\))?)[\s]*['"](.*?)['"][\s]*;/gim;
 			let regImport     = /@import[\s]*((?:\([a-zA-Z]+\))?)[\s]*['"](.*?)['"][\s]*;/i;
-			let matches = lessCode.match(regImport_gim);
+			let matches = lessCode
+				.replace(/^\/\/(.*)/gim, '') // remove line comments
+				.replace(/\/\*[\s\S]*?\*\/\n?/gim, '') // remove multi line comments
+				.match(regImport_gim);
 			if( null != matches ) {
 				matches.forEach(function(matchedImport) {
 					let matchParts = matchedImport.match(regImport);
@@ -1603,21 +1636,77 @@ gulp.task('build-less-imports-tree', function() {
 						importFilePath += '.less';
 					}
 					let dep = Path.resolve(dir, importFilePath);
-					//onsole.log('import:', dep);
-					compilationTargets[file.path].dependsFrom.push(dep);
-					dependencies[dep] = {dependencyOf: file.path};
+					_debug('| '.repeat(depth+1)+'- import:', dep);
+					dependencies[file.path].push(dep);
 				});
-			}
+			}	
 		}))
-		.on('end', function() {
-			console.log('dependencies', dependencies);
+		.on('error', function(err) {
+			reject(err);
 		})
-	;
-})
+		.on('end', async function() {
+			_debug('| '.repeat(depth-1)+'@ END'+(dependecyOf?' for '+dependecyOf:''));
+			//_debug('| '.repeat(depth-1)+'# treePath', treePath);
+			//_debug('| '.repeat(depth-1)+'# dependecyOf', dependecyOf);
+			
+			for(let filePath in dependencies) {
+				if( dependencies[filePath].length > 0 ) {
+					_debug('| '.repeat(depth)+'|-> RECURSION for '+filePath);
+					let deeperTreePath = treePath.slice();
+					deeperTreePath.push(filePath);
+					dependencies[filePath].forEach(function(importedFile) {
+						if( typeof(deepDependenciesIndex[importedFile]) == 'undefined' ) {
+							deepDependenciesIndex[importedFile] = [];
+						}
+						deeperTreePath.forEach(function(treePathItem) {
+							if( -1 === deepDependenciesIndex[importedFile].indexOf(treePathItem) ) {
+								deepDependenciesIndex[importedFile].push(treePathItem);
+							}
+						});
+					});
+					try {
+						let recursionResult = await parseLessDependencies(
+							dependencies[filePath],//.slice(),
+							deeperTreePath,
+							deepDependenciesIndex
+						);
+					}
+					catch(e) {
+						reject(e);
+					}
+					//console.log('# recursionResult', recursionResult);
+				}
+			}
+			_debug('| '.repeat(depth-1)+'@ RESOLVE'+(dependecyOf?' for '+dependecyOf:''));
+			resolve({
+				dependencies: dependencies,
+				deepDependenciesIndex: deepDependenciesIndex
+			});
+		});
+	});
+}
 
-gulp.task('add-watchers', function (done) {
+gulp.task('build-less-imports-tree', function() {
+	// let src = conf.less.main.watchImports;
+	// let src = conf.less.main.files;
+	// let src = conf.less.components.files;
+	// let src = [];
+	let src = conf.less.components.files.concat(conf.less.main.files);
+	return parseLessDependencies(src)
+	.then(function(res) {
+		//onsole.log(JSON.stringify(res, null, 4));
+	})
+	.catch(function(error) {
+		throw error;
+	});
+});
+
+gulp.task('add-watchers', async function (done) {
 	watchers.push(gulp.watch(conf.html.watch, WATCH_OPTIONS, ['html']));
-	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, ['less-main-bundle']));
+	//watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, ['less-main-bundle']));
+	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, function() {
+		
+	}));
 	watchers.push(gulp.watch(conf.less.main.bundle, WATCH_OPTIONS, ['css-bundle']));
 	watchers.push(gulp.watch(conf.less.main.files, WATCH_OPTIONS, function(changed) {
 		return lessWatcher(changed, 'main');
@@ -1632,14 +1721,14 @@ gulp.task('add-watchers', function (done) {
 	watchers.push(gulp.watch(conf.js.scripts, WATCH_OPTIONS, function(changed) {
 		return jsScriptsWatcher(changed);
 	}));
-	done();
+	//done(); нет смысле если используем async-функцию
 });
-gulp.task('remove-watchers', function(done) {
+gulp.task('remove-watchers', async function(done) {
 	watchers.forEach(function(watcher, index) {
 		watcher.end();
 	});
 	watchers = [];
-	done();
+	//done(); нет смысле если используем async-функцию
 });
 /**
  * Слежение за горячими клавишами.

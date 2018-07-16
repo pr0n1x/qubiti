@@ -44,6 +44,7 @@
     "gulp-vueify": "0.0.3",
     "gulp-watch": "^4.3.11",
     "gulp.spritesmith": "^6.5.0",
+    "lodash.assign": "^4.2.0",
     "merge-stream": "^1.0.1",
     "nunjucks": "^3.0.0",
     "nunjucks-includeData": "0.0.9",
