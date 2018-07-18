@@ -614,7 +614,7 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 					gutil.log(
 						gutil.colors.gray('skipping css minify:')
 						+gutil.colors.blue(' '+cssFile.relative)
-						+gutil.colors.gray(' (checkout --production or conf.assets.min_css or conf.dev_mode.minify_useless_css)')
+						+gutil.colors.gray(' (checkout --production option)')
 					);
 					return;
 				}
@@ -796,7 +796,7 @@ gulp.task('css-bundle', function() {
 								gutil.log(
 									gutil.colors.gray('skipping css minify:')
 									+gutil.colors.blue(' '+relFilePath)
-									+gutil.colors.gray(' (checkout --production or conf.assets.min_css or conf.dev_mode.minify_useless_css)')
+									+gutil.colors.gray(' (checkout --production option)')
 								);
 								return;
 							}
@@ -1275,7 +1275,7 @@ gulp.task('js-bundle', function(doneTask) {
 			if(conf.debug) {
 				gutil.log(
 					gutil.colors.gray('skipping minify of js-bundles')
-					+gutil.colors.gray(' (checkout --production or  conf.assets.min_js or conf.dev_mode.minify_useless_js)')
+					+gutil.colors.gray(' (checkout --production option)')
 				);
 			}
 			finishTaskLockPromise();
@@ -1376,7 +1376,7 @@ gulp.task('js-vendor-bundle', function() {
 			gutil.log(
 				gutil.colors.gray('skipping minify of ')
 				+gutil.colors.blue(bundleFile)
-				+gutil.colors.gray(' (checkout --production or  conf.assets.min_js or conf.dev_mode.minify_useless_js)')
+				+gutil.colors.gray(' (checkout --production option)')
 			);
 		}
 	}
@@ -1400,7 +1400,7 @@ gulp.task('js-scripts', function(done) {
 		if(conf.debug) {
 			gutil.log(
 				gutil.colors.gray('skipping minify of js-files')
-				+gutil.colors.gray(' (checkout --production or  conf.assets.min_js or conf.dev_mode.minify_useless_js)')
+				+gutil.colors.gray(' (checkout --production option)')
 			);
 		}
 		done();
@@ -1456,7 +1456,7 @@ function jsScriptsWatcher(changedFile) {
 		gutil.log(
 			gutil.colors.gray('skipping minify of ')
 			+gutil.colors.blue(file)
-			+gutil.colors.gray(' (checkout --production or  conf.assets.min_js or conf.dev_mode.minify_useless_js)')
+			+gutil.colors.gray(' (checkout --production option)')
 		);
 	}
 	return gutil.noop();
