@@ -83,8 +83,11 @@ const
 // };
 // vueify.compiler.applyConfig({ babel: babelConfig });
 
+const EventEmitter = require('events').EventEmitter;
+
 //noinspection JSCheckFunctionSignatures
-var browserSync = require('browser-sync').create();
+const browserSyncEmitter = new EventEmitter();
+var browserSync = require('browser-sync').create(null, browserSyncEmitter);
 var isInteractiveMode = false;
 
 var conf = {
@@ -93,10 +96,25 @@ var conf = {
 	,debug: false
 	,production: false
 	,assets: {
-		min_css: false,
-		min_js: false
+		// Использовать минифицированные css-файлы
+		min_css: false, // getter от ключа .production
+		// Использовать минифицированные js-файлы
+		min_js: false // getter от ключа .production
 	}
 	,dev_mode: {
+		// .dev_mode.minify_useless_css определяет пересобирать ли min-файлы
+		// если .assets.min_css == false. Если false, то и минифицировать по идее не нужно.
+		// Минификаия - это тяжелая операция, которая сэкономить
+		// много времени на сборке в режиме разработки.
+		// Ниже эти параметры определены как ф-ия (getter) от ключа .production
+		// .dev_mode.minify_useless_css = produiction ? true : false
+		// Если эти параметры определить в файле "gulpfile.config.js",
+		// то они всегда будут иметь значение указанное там
+		// вне зависимости от значения ключа .production.
+		minify_useless_css: false,
+		// то же что и .dev_mode.minify_useless_css только для js-файлов
+		minify_useless_js: false,
+
 		// В dev_mode (conf.production == false)
 		// вместо bundle.css файла
 		// используются отдельные файлы css-bundle-а
@@ -286,7 +304,22 @@ var conf = {
 	}
 };
 
-extend(true, conf, require(conf.curDir+'/gulpfile.config.js'));
+function getterProductionRelative() {
+	return conf.production;
+}
+
+Object.defineProperty(conf.dev_mode, 'minify_useless_css', { get: getterProductionRelative });
+Object.defineProperty(conf.dev_mode, 'minify_useless_js', { get: getterProductionRelative });
+
+
+var userConf = require(conf.curDir+'/gulpfile.config.js');
+if( typeof(userConf) == 'function' ) {
+	extend(true, conf, userConf(conf));
+}
+else {
+	extend(true, conf, userConf);
+}
+
 
 function replacePlaceHolder(object, replace, callcount) {
 	if(typeof(callcount) == 'undefined') callcount = 1;
@@ -333,12 +366,12 @@ replacePlaceHolder(conf.less.components.files, {cond: /@styleName/, value: conf.
 conf.debug = !!(gutil.env.debug ? true : conf.debug);
 conf.production = !!(gutil.env.production ? true : conf.production);
 
-if( conf.production ) {
-	conf.assets.min_css = true;
-	conf.assets.min_js = true;
-	conf.html.bx_component.use_minified_css = true;
-	conf.html.bx_component.use_minified_js = true;
-}
+Object.defineProperty(conf.assets, 'min_css', { get: getterProductionRelative });
+Object.defineProperty(conf.assets, 'min_js', { get: getterProductionRelative });
+Object.defineProperty(conf.html.bx_component, 'use_minified_css', { get: getterProductionRelative });
+Object.defineProperty(conf.html.bx_component, 'use_minified_js', { get: getterProductionRelative });
+
+
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
 	var isAllAssetsIsMinified = parseArgAsBool(gutil.env['assets-min']);
@@ -465,8 +498,20 @@ function browserSyncStream() {
 		? browserSync.stream()
 		: gutil.noop()
 }
-function browserSyncReload() {
+
+function browserSyncReload(done) {
 	if( browserSyncReloadIsActive ) {
+		if( typeof(done) == 'function' ) {
+			//util.log(gutil.colors.red('browser-sync reload'));
+			browserSyncEmitter.once('_browser:reload', function(event) {
+				//util.log(gutil.colors.red('browser-sync event: _browser:reload'));
+				setTimeout(function() {
+					//util.log(gutil.colors.red('browser-sync event: _browser:reload - after 500ms'));
+					done();
+				}, 500);
+
+			});
+		}
 		browserSync.reload();
 	}
 }
@@ -565,6 +610,14 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 		.pipe(browserSyncStream()) // update target unminified css-file and its map
 		.pipe(tap(function(cssFile, t) {
 			if( Path.extname(cssFile.relative) == '.css') {
+				if( ! conf.assets.min_css && ! conf.dev_mode.minify_useless_css ) {
+					gutil.log(
+						gutil.colors.gray('skipping css minify:')
+						+gutil.colors.blue(' '+cssFile.relative)
+						+gutil.colors.gray(' (checkout --production or conf.assets.min_css or conf.dev_mode.minify_useless_css)')
+					);
+					return;
+				}
 				if( ! fs.existsSync(cssFile.path) ) {
 					gutil.log(gutil.colors.red('css file '+cssFile.relative+' not ready yet.'));
 				}
@@ -634,7 +687,7 @@ function lessWatcher(changedFile, target) {
 			break;
 		case 'components':
 			dest = Path.dirname(file);
-			stream = gulp.src(dest+'/'+conf.less.components.styleName, {dot: true});
+			stream = gulp.src(dest+'/'+conf.less.components.styleName, {dot: true, base: dest});
 			if(conf.debug) gutil.log(
 				'less watcher: '
 				+gutil.colors.blue(dest+'/'
@@ -684,7 +737,7 @@ gulp.task('css-bundle', function() {
 
 			if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
 				var bundleStream = gulp.src(cssBundleFiles, {dot: true})
-					.pipe(conf.debug ? debug({title: 'css bundle file:'}) : gutil.noop())
+					.pipe(conf.debug ? debug({title: 'css bundle file:', showCount: false}) : gutil.noop())
 					.pipe(plumber())
 					.pipe(sourcemaps.init({loadMaps: true}))
 					.pipe(tap(function(file) {
@@ -723,22 +776,35 @@ gulp.task('css-bundle', function() {
 					}));
 					bundleStream
 					.pipe(concat(bundleName+'.css'))
+					.pipe(
+						( conf.production
+							|| !isInteractiveMode
+							|| !conf.dev_mode.no_bsync_css_bundle_file
+						)
+						? browserSyncStream()
+						: (conf.debug
+							? debug({title: 'ignoring browser-sync update of css-bundle:', showCount: false})
+							: gutil.noop()
+						)
+					)
 					.pipe(sourcemaps.write('./'))
 					.pipe(gulp.dest(conf.less.main.dest))
 					.pipe(tap(function(file) {
 						var relFilePath = getRelPathByChanged(file);
 						if(Path.extname(relFilePath) === '.css') {
+							if( ! conf.assets.min_css && ! conf.dev_mode.minify_useless_css ) {
+								gutil.log(
+									gutil.colors.gray('skipping css minify:')
+									+gutil.colors.blue(' '+relFilePath)
+									+gutil.colors.gray(' (checkout --production or conf.assets.min_css or conf.dev_mode.minify_useless_css)')
+								);
+								return;
+							}
 							var dest = Path.dirname(relFilePath);
 							stream.add(gulp.src(relFilePath)
 								.pipe(sourcemaps.init({loadMaps: true}))
 								.pipe(rename({extname: '.min.css'}))
 								.pipe(cssnano({zindex: false}))
-								// Уведосляем браузер о том, что изменился собранный
-								// файл css-bundle-а,
-								// ! но только в том случае, если
-								// сборка работает в production-режиме.
-								// В ином случае файлы бандла
-								// подключены непосредственно в html-е
 								.pipe(
 									( conf.production
 										|| !isInteractiveMode
@@ -746,7 +812,7 @@ gulp.task('css-bundle', function() {
 									)
 									? browserSyncStream()
 									: (conf.debug
-										? debug({title: 'ignoring browser-sync update of css-bundle:'})
+										? debug({title: 'ignoring browser-sync update of css-bundle:', showCount: false})
 										: gutil.noop()
 									)
 								)
@@ -760,7 +826,11 @@ gulp.task('css-bundle', function() {
 			}
 		}
 		else if(conf.debug) {
-			gutil.log('ignoring building of css-bundle: '+gutil.colors.blue(bundleName+'.css')+gutil.colors.gray(' (--dev-no-build-css-bundle-file)'));
+			gutil.log(
+				'ignoring building of css-bundle: '
+				+gutil.colors.blue(bundleName+'.css')
+				+gutil.colors.gray(' (--dev-no-build-css-bundle-file)')
+			);
 		}
 	}));
 
@@ -776,7 +846,7 @@ function parseCssBundleImportList(afterParseCallback) {
 	cssBundleFiles = [];
 	var cssBundleFilesImport = '';
 	return gulp.src(conf.less.main.bundle)
-		.pipe(conf.debug ? debug({title: 'css bundle:'}) : gutil.noop())
+		.pipe(conf.debug ? debug({title: 'css bundle:', showCount: false}) : gutil.noop())
 		.pipe(tap(function(file) {
 			var bundleName = Path.basename(file.path)
 				.replace(/^_/, '')
@@ -1178,27 +1248,38 @@ gulp.task('js-bundle', function(doneTask) {
 					streams.add(bundleStream);
 				}
 			}));
-		// srcFilesStream.on('end', async function() {});
-		jsScriptsCommonStreamHandler(streams, bundleDir)
-		.pipe(tap(function(file) {
-			// tap() убирать отсюда нельзя.
-			// Он делает какое-то преобразование со stream-ом,
-			// после которого метод on('end') начинает исполняться корректно  
+		if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
+			// srcFilesStream.on('end', async function() {});
+			jsScriptStreamMinifyHandler(streams, bundleDir)
+			.pipe(tap(function(file) {
+				// tap() убирать отсюда нельзя.
+				// Он делает какое-то преобразование со stream-ом,
+				// после которого метод on('end') начинает исполняться корректно  
 
-			// console.log('## debug ##', {
-			// 	path: file.path,
-			// 	bundleName: file.bundleName,
-			// 	bundleFile: file.bundleFile,
-			// 	bundleSrcFile: file.bundleSrcFile
-			// });
-		}))
-		.on('end', function() {
+				// console.log('## debug ##', {
+				// 	path: file.path,
+				// 	bundleName: file.bundleName,
+				// 	bundleFile: file.bundleFile,
+				// 	bundleSrcFile: file.bundleSrcFile
+				// });
+			}))
+			.on('end', function() {
+				finishTaskLockPromise();
+			})
+			.on('error', function(err) {
+				gutil.log('Error:', err);
+				rejectTaskLockPromise(err);
+			});
+		}
+		else {
+			if(conf.debug) {
+				gutil.log(
+					gutil.colors.gray('skipping minify of js-bundles')
+					+gutil.colors.gray(' (checkout --production or  conf.assets.min_js or conf.dev_mode.minify_useless_js)')
+				);
+			}
 			finishTaskLockPromise();
-		})
-		.on('error', function(err) {
-			gutil.log('Error:', err);
-			rejectTaskLockPromise(err);
-		});
+		}
 	});
 });
 
@@ -1283,11 +1364,23 @@ gulp.task('js-vendor-bundle', function() {
 		.pipe(gulp.dest(bundleDir));
 
 	// return bundleStream;
-	return jsScriptsCommonStreamHandler(
-		bundleStream,
-		bundleDir,
-		conf.debug ? 'vendor-bundle:' : ''
-	);
+	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
+		return jsScriptStreamMinifyHandler(
+			bundleStream,
+			bundleDir,
+			conf.debug ? 'vendor-bundle:' : ''
+		);
+	}
+	else {
+		if(conf.debug) {
+			gutil.log(
+				gutil.colors.gray('skipping minify of ')
+				+gutil.colors.blue(bundleFile)
+				+gutil.colors.gray(' (checkout --production or  conf.assets.min_js or conf.dev_mode.minify_useless_js)')
+			);
+		}
+	}
+	return bundleStream
 });
 
 /**
@@ -1295,14 +1388,25 @@ gulp.task('js-vendor-bundle', function() {
  * @task {js-scripts}
  * @order {6}
  */
-gulp.task('js-scripts', function() {
-	return jsScriptsCommonStreamHandler(
-		gulp.src(conf.js.scripts, {dot: true, base: '.'}),
-		'.',
-		conf.debug ? 'js-script:' : ''
-	);
+gulp.task('js-scripts', function(done) {
+	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
+		return jsScriptStreamMinifyHandler(
+			gulp.src(conf.js.scripts, {dot: true, base: '.'}),
+			'.',
+			conf.debug ? 'js-script:' : ''
+		);
+	}
+	else {
+		if(conf.debug) {
+			gutil.log(
+				gutil.colors.gray('skipping minify of js-files')
+				+gutil.colors.gray(' (checkout --production or  conf.assets.min_js or conf.dev_mode.minify_useless_js)')
+			);
+		}
+		done();
+	}
 });
-function jsScriptsCommonStreamHandler(stream, dest, debugTitle) {
+function jsScriptStreamMinifyHandler(stream, dest, debugTitle) {
 	var debugMode = true;
 	if( 'string' != typeof(debugTitle)
 		|| '' == debugTitle
@@ -1342,10 +1446,21 @@ function jsScriptsWatcher(changedFile) {
 			dest+'/{ '+fileName+' -> '+fileName.replace(/\.js/, '.min.js')+' }'
 		)
 	);
-	return jsScriptsCommonStreamHandler(
-		gulp.src(file), dest,
-		false ? 'js-script watcher:' : ''
-	);
+	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
+		return jsScriptStreamMinifyHandler(
+			gulp.src(file), dest,
+			false ? 'js-script watcher:' : ''
+		);
+	}
+	if(conf.debug) {
+		gutil.log(
+			gutil.colors.gray('skipping minify of ')
+			+gutil.colors.blue(file)
+			+gutil.colors.gray(' (checkout --production or  conf.assets.min_js or conf.dev_mode.minify_useless_js)')
+		);
+	}
+	return gutil.noop();
+	
 }
 
 
@@ -1567,6 +1682,10 @@ gulp.task('build', function(done) {
 
 
 function parseLessDependencies(src, treePath, deepDependenciesIndex, dependencyCache) {
+	if( conf.debug ) {
+		gutil.log(gutil.colors.blue('Building the less import dependency tree'));
+	}
+
 	// let _debug = function() { console.log('', ...arguments); };
 	let _debug = function() {};
 	if( typeof(treePath) != 'object' || ! Array.isArray(treePath) ) {
@@ -1678,7 +1797,7 @@ gulp.task('test-less-imports-tree', function() {
 	let src = conf.less.components.files.concat(conf.less.main.files);
 	return parseLessDependencies(src)
 	.then(function(res) {
-		//onsole.log(JSON.stringify(res, null, 4));
+		console.log(JSON.stringify(res, null, 4));
 	})
 	.catch(function(error) {
 		throw error;
@@ -1693,7 +1812,7 @@ gulp.task('test-less-imports-tree', function() {
  */
 var watchers = [];
 const WATCH_OPTIONS = {cwd: './'};
-var lessDeepDependenciesIndex = {};
+var lessDeepDependenciesIndex = null;
 gulp.task('watch', function(done) {
 	isInteractiveMode = true;
 	if( watchers.length > 0 ) {
@@ -1712,8 +1831,14 @@ gulp.task('add-watchers', async function (done) {
 	// less-css
 	//watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, ['less-main-bundle']));
 	let allLessSrc = conf.less.components.files.concat(conf.less.main.files);
-	lessDeepDependenciesIndex = (await parseLessDependencies(allLessSrc)).deepDependenciesIndex;
-	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, function(changed) {
+	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, async function(changed) {
+		if(null === lessDeepDependenciesIndex) {
+			lessDeepDependenciesIndex = (await parseLessDependencies(allLessSrc)).deepDependenciesIndex;
+			console.log('less dep tree parsed');
+		}
+		else {
+			console.log('less dep tree is ready');
+		}
 		if( typeof(lessDeepDependenciesIndex[changed.path]) == 'object'
 			&& Array.isArray(lessDeepDependenciesIndex[changed.path])
 			&& lessDeepDependenciesIndex[changed.path].length > 0
@@ -1767,9 +1892,11 @@ gulp.task('add-watchers', async function (done) {
 	}));
 	watchers.push(gulp.watch(conf.less.main.bundle, WATCH_OPTIONS, ['css-bundle']));
 	watchers.push(gulp.watch(conf.less.main.files, WATCH_OPTIONS, function(changed) {
+		lessDeepDependenciesIndex = null;
 		return lessWatcher(changed, 'main');
 	}));
 	watchers.push(gulp.watch(conf.less.components.watch, WATCH_OPTIONS, function(changed) {
+		lessDeepDependenciesIndex = null;
 		return lessWatcher(changed, 'components');
 	}));
 
@@ -1784,13 +1911,25 @@ gulp.task('add-watchers', async function (done) {
 	//done(); нет смысла если используем async-функцию
 });
 gulp.task('remove-watchers', async function(done) {
-	lessDeepDependenciesIndex = {};
+	lessDeepDependenciesIndex = null;
 	watchers.forEach(function(watcher, index) {
 		watcher.end();
 	});
 	watchers = [];
 	//done(); нет смысла если используем async-функцию
 });
+
+gulp.task('--begin-interactive-mode-task-action', function() {
+	isInteractiveMode = false;
+	switchBroserSync(false);
+});
+
+gulp.task('--finish-interactive-mode-task-action', function(done) {
+	isInteractiveMode = true;
+	switchBroserSync(true);
+	browserSyncReload(done);
+});
+
 /**
  * Слежение за горячими клавишами.
  * Подсказка по горячим клавишам: $ gulp help-hk | less
@@ -1798,19 +1937,9 @@ gulp.task('remove-watchers', async function(done) {
  * @order {16}
  */
 gulp.task('watch-hotkeys', function() {
-	isInteractiveMode = true;
+	
 	var keyListener = new KeyPressEmitter();
-
-	function beginInteractiveModeTaskAction() {
-		isInteractiveMode = false;
-		switchBroserSync(false);
-	}
-	function finishInteractiveModeTaskAction() {
-		isInteractiveMode = true;
-		switchBroserSync(true);
-		browserSyncReload();
-	}
-
+	
 	keyListener.on('showHotKeysHelp', function() {
 		runSequence('help-hk');
 	});
@@ -1829,82 +1958,132 @@ gulp.task('watch-hotkeys', function() {
 		runSequence('remove-watchers');
 	});
 	keyListener.on('buildHtml', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'html', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'html',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildAllStyles', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'less-main', 'less-components', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'less-main', 'less-components',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildMainStyles', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'less-main', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'less-main',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildMainStylesAndBundle', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'less-main-bundle', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'less-main-bundle',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildAllStylesAndBundle', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'less', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'less',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildComponentStyles', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'less-components', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'less-components',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildCssBundle', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'css-bundle', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'css-bundle',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildJs', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'js', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'js',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildJsScripts', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'js-scripts', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'js-scripts',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildJsBundle', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'js-bundle', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'js-bundle',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildJsVendorBundle', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'js-vendor-bundle', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'js-vendor-bundle',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('optimizeImages', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'images', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'images',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildSprites', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'sprites', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'sprites',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('buildCsvIconsFont', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'svg-icons-font', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'svg-icons-font',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('downloadGoogleWebFonts', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'google-web-fonts', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'google-web-fonts',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('switchDebugMode', function() {
 		conf.debug = !conf.debug;
-		gutil.log(gutil.colors.blue('Debug mode switched to "'+(conf.debug?'true':'false')+'"'))
+		gutil.log(gutil.colors.magenta('Debug mode switched to "'+(conf.debug?'true':'false')+'"'))
 	});
 	keyListener.on('switchProductionMode', function() {
 		conf.production = !conf.production;
-		gutil.log(gutil.colors.blue('Production mode switched to "'+(conf.production?'true':'false')+'"'))
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'html', 'add-watchers', finishInteractiveModeTaskAction);
+		gutil.log(gutil.colors.magenta('Production mode switched to "'+(conf.production?'true':'false')+'"'))
+		gutil.log(gutil.colors.green('After production mode switch you should to do full rebuild [key "b"] to take effect.'));
 	});
 	keyListener.on('reloadAll', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'less-components', 'js-scripts', 'html', 'add-watchers', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'less-components', 'js-scripts', 'html', 'add-watchers',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.on('build', function() {
-		beginInteractiveModeTaskAction();
-		runSequence('remove-watchers', 'build', 'add-watchers', finishInteractiveModeTaskAction);
+		runSequence(
+			'--begin-interactive-mode-task-action', 'remove-watchers',
+			'build',
+			'--finish-interactive-mode-task-action', 'add-watchers'
+		);
 	});
 	keyListener.start();
 });
@@ -1915,7 +2094,7 @@ gulp.task('keys-debug', function() {
 	keyListener.start();
 });
 
-const EventEmitter = require('events').EventEmitter;
+
 class KeyPressEmitter extends EventEmitter {
 
 	constructor() {
@@ -2034,7 +2213,7 @@ class KeyPressEmitter extends EventEmitter {
 				_this.emit('switchDebugMode');
 			}
 			else if( key.shift && key.name == 'p' && key.sequence == 'P' ) {
-				gutil.log('Hot key [Shift+p]: Switch debug mode');
+				gutil.log('Hot key [Shift+p]: Switch production mode');
 				_this.emit('switchProductionMode');
 			}
 			else if( false === key.shift && key.name == 'r' ) {
