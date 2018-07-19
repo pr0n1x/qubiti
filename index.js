@@ -1701,11 +1701,7 @@ gulp.task('build', function(done) {
 });
 
 
-function parseLessDependencies(src, treePath, deepDependenciesIndex, dependencyCache) {
-	if( conf.debug ) {
-		gutil.log(gutil.colors.blue('Building the less import dependency tree'));
-	}
-
+function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 	// let _debug = function() { console.log('', ...arguments); };
 	let _debug = function() {};
 	if( typeof(treePath) != 'object' || ! Array.isArray(treePath) ) {
@@ -1713,9 +1709,9 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex, dependencyC
 	}
 	if( typeof(deepDependenciesIndex) != 'object' || null === deepDependenciesIndex ) {
 		deepDependenciesIndex = {};
-	}
-	if( typeof(dependencyCache) != 'object' || null === dependencyCache ) {
-		dependencyCache = {};
+		if( conf.debug ) {
+			gutil.log(gutil.colors.blue('Building the less import dependency tree'));
+		}
 	}
 
 	let depth = treePath.length+1;
@@ -1854,11 +1850,11 @@ gulp.task('add-watchers', async function (done) {
 	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, async function(changed) {
 		if(null === lessDeepDependenciesIndex) {
 			lessDeepDependenciesIndex = (await parseLessDependencies(allLessSrc)).deepDependenciesIndex;
-			console.log('less dep tree parsed');
+			//onsole.log('less dep tree parsed');
 		}
-		else {
-			console.log('less dep tree is ready');
-		}
+		// else {
+		// 	console.log('less dep tree is ready');
+		// }
 		if( typeof(lessDeepDependenciesIndex[changed.path]) == 'object'
 			&& Array.isArray(lessDeepDependenciesIndex[changed.path])
 			&& lessDeepDependenciesIndex[changed.path].length > 0
