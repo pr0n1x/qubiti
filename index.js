@@ -163,6 +163,7 @@ var conf = {
 			,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.json'
 		]
 		,dest: 'html'
+		,css_bundle_use_separate_files: false
 		,bx_component: {
 			 use_minified_js: false
 			,use_minified_css: false
@@ -304,12 +305,36 @@ var conf = {
 	}
 };
 
-function getterProductionRelative() {
-	return conf.production;
+
+
+function setterDummy(value) {
+	console.log('dummyGetter', value, this);
+	// if( typeof(value) != 'undefined' ) {
+	// 	this.value = value;
+	// }
+}
+function generateGetterSetterProductionRelative() {
+	var currentValue = undefined;
+	return {
+		get: function() {
+			return (typeof(currentValue) == 'undefined')
+				? conf.production
+				: currentValue;
+		},
+		set: function(newValue) {
+			currentValue = newValue;
+		}
+	};
 }
 
-Object.defineProperty(conf.dev_mode, 'minify_useless_css', { get: getterProductionRelative });
-Object.defineProperty(conf.dev_mode, 'minify_useless_js', { get: getterProductionRelative });
+
+Object.defineProperty(conf.dev_mode, 'minify_useless_css', generateGetterSetterProductionRelative() );
+Object.defineProperty(conf.dev_mode, 'minify_useless_js', generateGetterSetterProductionRelative() );
+Object.defineProperty(conf.assets, 'min_css', generateGetterSetterProductionRelative() );
+Object.defineProperty(conf.assets, 'min_js', generateGetterSetterProductionRelative() );
+Object.defineProperty(conf.html.bx_component, 'use_minified_css', generateGetterSetterProductionRelative() );
+Object.defineProperty(conf.html.bx_component, 'use_minified_js', generateGetterSetterProductionRelative() );
+Object.defineProperty(conf.html, 'css_bundle_use_separate_files', generateGetterSetterProductionRelative() );
 
 
 var userConf = require(conf.curDir+'/gulpfile.config.js');
@@ -365,12 +390,6 @@ replacePlaceHolder(conf.less.components.files, {cond: /@styleName/, value: conf.
 
 conf.debug = !!(gutil.env.debug ? true : conf.debug);
 conf.production = !!(gutil.env.production ? true : conf.production);
-
-Object.defineProperty(conf.assets, 'min_css', { get: getterProductionRelative });
-Object.defineProperty(conf.assets, 'min_js', { get: getterProductionRelative });
-Object.defineProperty(conf.html.bx_component, 'use_minified_css', { get: getterProductionRelative });
-Object.defineProperty(conf.html.bx_component, 'use_minified_js', { get: getterProductionRelative });
-
 
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
@@ -938,6 +957,7 @@ gulp.task('--html-nunjucks', function() {
 			return {
 				PRODUCTION: conf.production,
 				CSS_BUNDLE_FILES: cssBundleFiles,
+				CSS_BUNDLE_USE_SEPARATE_FILSE: conf.html.css_bundle_use_separate_files,
 				__PAGE__: currentFile,
 				__PATH__: currentDir,
 				DOC_ROOT: layoutDocumentRoot,
