@@ -326,6 +326,19 @@ function generateGetterSetterProductionRelative() {
 		}
 	};
 }
+function generateGetterSetterProductionNegative() {
+	var currentValue = undefined;
+	return {
+		get: function() {
+			return (typeof(currentValue) == 'undefined')
+				? ( ! conf.production )
+				: currentValue;
+		},
+		set: function(newValue) {
+			currentValue = newValue;
+		}
+	};
+}
 
 
 Object.defineProperty(conf.dev_mode, 'minify_useless_css', generateGetterSetterProductionRelative() );
@@ -334,7 +347,7 @@ Object.defineProperty(conf.assets, 'min_css', generateGetterSetterProductionRela
 Object.defineProperty(conf.assets, 'min_js', generateGetterSetterProductionRelative() );
 Object.defineProperty(conf.html.bx_component, 'use_minified_css', generateGetterSetterProductionRelative() );
 Object.defineProperty(conf.html.bx_component, 'use_minified_js', generateGetterSetterProductionRelative() );
-Object.defineProperty(conf.html, 'css_bundle_use_separate_files', generateGetterSetterProductionRelative() );
+Object.defineProperty(conf.html, 'css_bundle_use_separate_files', generateGetterSetterProductionNegative() );
 
 
 var userConf = require(conf.curDir+'/gulpfile.config.js');
