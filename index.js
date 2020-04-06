@@ -17,10 +17,6 @@ const
 	,extend = require('extend')
 	,Path = require('path')
 	,decodeKeypress = require('decode-keypress')
-	,del = require('del')
-	,envify = require('envify/custom')
-	,glob = require('glob')
-	,autoprefixer = require('gulp-autoprefixer')
 	,concat = require('gulp-concat')
 	,cssnano = require('gulp-cssnano')
 	,convertSourceMap = require('convert-source-map')
@@ -41,20 +37,16 @@ const
 	,tap = require('gulp-tap')
 	,uglify = require('gulp-uglify')
 	,gutil = require('gulp-util')
-	,watch = require('gulp-watch')
 	,spritesmith = require('gulp.spritesmith')
 	,merge = require('merge-stream')
 	,runSequence = require('run-sequence').use(gulp)
-	,Stream = require('stream')
-	,through = require('through')
-	,through2 = require('through2')
 	,vbuffer = require('vinyl-buffer')
 	,vsource = require('vinyl-source-stream')
 	,gbuffer = require('gulp-buffer')
 	,browserify = require('browserify')
 	,browserifyResolveShimify = require('resolve-shimify')
-	,lodashAssign = require('lodash.assign')
-	,minimatch = require('minimatch');
+	// ,lodashAssign = require('lodash.assign')
+	,minimatch = require('minimatch')
 
 	// вся эта хрень вполне ставится в самом шаблоне
 	// и нет никакой надобности захламлять qubity этими зависимостями
@@ -70,7 +62,7 @@ const
 	// ,babelPluginTransformExportExtensions = require('babel-plugin-transform-export-extensions')
 	// ,babelPluginSyntaxExportExtensions = require('babel-plugin-syntax-export-extensions')
 ;
-// var babelConfig = {
+// let babelConfig = {
 // 	presets: [
 // 		babelPresetEnv,
 // 		babelPresetStage2
@@ -87,10 +79,10 @@ const EventEmitter = require('events').EventEmitter;
 
 //noinspection JSCheckFunctionSignatures
 const browserSyncEmitter = new EventEmitter();
-var browserSync = require('browser-sync').create(null, browserSyncEmitter);
-var isInteractiveMode = false;
+let browserSync = require('browser-sync').create(null, browserSyncEmitter);
+let isInteractiveMode = false;
 
-var conf = {
+let conf = {
 	//noinspection JSUnresolvedVariable
 	curDir: currentTemplateDir
 	,debug: false
@@ -306,15 +298,8 @@ var conf = {
 };
 
 
-
-function setterDummy(value) {
-	console.log('dummyGetter', value, this);
-	// if( typeof(value) != 'undefined' ) {
-	// 	this.value = value;
-	// }
-}
 function generateGetterSetterProductionRelative() {
-	var currentValue = undefined;
+	let currentValue = undefined;
 	return {
 		get: function() {
 			return (typeof(currentValue) == 'undefined')
@@ -327,7 +312,7 @@ function generateGetterSetterProductionRelative() {
 	};
 }
 function generateGetterSetterProductionNegative() {
-	var currentValue = undefined;
+	let currentValue = undefined;
 	return {
 		get: function() {
 			return (typeof(currentValue) == 'undefined')
@@ -350,7 +335,7 @@ Object.defineProperty(conf.html.bx_component, 'use_minified_js', generateGetterS
 Object.defineProperty(conf.html, 'css_bundle_use_separate_files', generateGetterSetterProductionNegative() );
 
 
-var userConf = require(conf.curDir+'/gulpfile.config.js');
+let userConf = require(conf.curDir+'/gulpfile.config.js');
 if( typeof(userConf) == 'function' ) {
 	extend(true, conf, userConf(conf));
 }
@@ -360,16 +345,14 @@ else {
 
 
 function replacePlaceHolder(object, replace, callcount) {
-	if(typeof(callcount) == 'undefined') callcount = 1;
-	if(parseInt(callcount) <= 1) {callcount = 1};
-	if(typeof(object) != 'object') {
-		return;
-	}
-	// var offset = '  ';
-	// for(var i=0; i<callcount; i++) {
+	if (typeof(callcount) == 'undefined') callcount = 1;
+	if (parseInt(callcount) <= 1) callcount = 1;
+	if (typeof(object) != 'object') return;
+	// let offset = '  ';
+	// for(let i=0; i<callcount; i++) {
 	// 	offset += offset;
 	// }
-	var itemWork = function(key) {
+	let itemWork = function(key) {
 		switch(typeof(object[key])) {
 			case 'object':
 				//onsole.log(offset+key+':object:'+callcount);
@@ -384,12 +367,12 @@ function replacePlaceHolder(object, replace, callcount) {
 		}
 	};
 	if(Array.isArray(object)) {
-		for(var key=0; key < object.length; key++) {
+		for(let key=0; key < object.length; key++) {
 			itemWork(key);
 		}
 	}
 	else {
-		for(var key in object) {
+		for(let key in object) {
 			if(object.hasOwnProperty(key)) {
 				itemWork(key);
 			}
@@ -406,7 +389,7 @@ conf.production = !!(gutil.env.production ? true : conf.production);
 
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
-	var isAllAssetsIsMinified = parseArgAsBool(gutil.env['assets-min']);
+	let isAllAssetsIsMinified = parseArgAsBool(gutil.env['assets-min']);
 	conf.assets.min_css = isAllAssetsIsMinified;
 	conf.assets.min_js = isAllAssetsIsMinified;
 	conf.html.bx_component.use_minified_css = isAllAssetsIsMinified;
@@ -455,10 +438,11 @@ function swallowError(error) {
 	this.emit('end');
 }
 
-var browserSyncTimeout = 0;
+let browserSyncTimeout = 0;
 function onTaskEnd() {
 
 }
+// noinspection JSUnusedLocalSymbols
 function onTaskEndBrowserReload() {
 	clearTimeout(browserSyncTimeout);
 	browserSyncTimeout = setTimeout(browserSync.reload, 200);
@@ -479,7 +463,7 @@ function substr( f_string, f_start, f_length ) {
 	if(f_start < 0) {
 		f_start += f_string.length;
 	}
-	if(f_length == undefined) {
+	if(f_length === undefined) {
 		f_length = f_string.length;
 	} else if(f_length < 0){
 		f_length += f_string.length;
@@ -491,24 +475,9 @@ function substr( f_string, f_start, f_length ) {
 	}
 	return f_string.substring(f_start, f_length);
 }
-var isArray = (function () {
-	// Use compiler's own isArray when available
-	if (Array.isArray) {
-		return Array.isArray;
-	}
-
-	// Retain references to variables for performance
-	// optimization
-	var objectToStringFn = Object.prototype.toString,
-		arrayToStringResult = objectToStringFn.call([]);
-
-	return function (subject) {
-		return objectToStringFn.call(subject) === arrayToStringResult;
-	};
-}());
 
 function parsePath(path) {
-	var extname = Path.extname(path);
+	let extname = Path.extname(path);
 	return {
 		dirname: Path.dirname(path),
 		basename: Path.basename(path, extname),
@@ -516,7 +485,7 @@ function parsePath(path) {
 	};
 }
 
-var browserSyncReloadIsActive = true;
+let browserSyncReloadIsActive = true;
 function switchBroserSync(state) {
 	if( state instanceof Boolean ) {
 		browserSyncReloadIsActive = state;
@@ -535,6 +504,7 @@ function browserSyncReload(done) {
 	if( browserSyncReloadIsActive ) {
 		if( typeof(done) == 'function' ) {
 			//util.log(gutil.colors.red('browser-sync reload'));
+			// noinspection JSUnusedLocalSymbols
 			browserSyncEmitter.once('_browser:reload', function(event) {
 				//util.log(gutil.colors.red('browser-sync event: _browser:reload'));
 				setTimeout(function() {
@@ -553,7 +523,7 @@ function browserSyncReload(done) {
  * @task {less}
  * @order {3}
  */
-var cssBundleFiles = null;
+let cssBundleFiles = null;
 //gulp.task('less', ['less-main-bundle', 'less-components']);
 // нет смысла запускать параллельно - нет прироста в скорости
 // а последовательный запуск понятнее отлаживать при случае
@@ -579,38 +549,34 @@ gulp.task('less-components', function(doneTask) {
 		doneTask
 	);
 });
+// noinspection JSUnusedLocalSymbols
 function lessCommonPipe(stream, dest, debugTitle, doneTask) {
-	var debugMode = true;
-	if( 'string' != typeof(debugTitle)
-		|| '' == debugTitle
-	) {
+	let debugMode = true;
+	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
 		debugMode = false;
 	}
 
 	function mapSources(sourcePath, file) {
-		var compileFilePath = file.path.replace(conf.curDir+'/', '');
-		var compileFileName = Path.basename(compileFilePath);
-		var compileDir = Path.dirname(compileFilePath);
-
-		var srcFileName = Path.basename(sourcePath);
-		var srcFileDir = Path.dirname(sourcePath);
-		var upToRoot = Path.relative('/'+compileDir, '/');
-
-		var resultSrc = upToRoot+'/'+compileDir+'/'+sourcePath;
-		if( dest == '.' || dest == './' || dest == '.\\' ) {
+		let compileFilePath = file.path.replace(conf.curDir+'/', '');
+		// let compileFileName = Path.basename(compileFilePath);
+		let compileDir = Path.dirname(compileFilePath);
+		// let srcFileName = Path.basename(sourcePath);
+		// let srcFileDir = Path.dirname(sourcePath);
+		let upToRoot = Path.relative('/'+compileDir, '/');
+		let resultSrc = upToRoot+'/'+compileDir+'/'+sourcePath;
+		if( dest === '.' || dest === './' || dest === '.\\' ) {
 			resultSrc = upToRoot+'/'+sourcePath;
 		}
-
-// 		gutil.log(compileDir+':');
-// 		gutil.log(compileDir+':  complie dir: '+compileDir);
-// 		gutil.log(compileDir+': complie file: '+compileFileName);
-// 		gutil.log(compileDir+': compile path: '+compileFilePath);
-// 		gutil.log(compileDir+':     ~ source: '+sourcePath);
-// 		gutil.log(compileDir+':     src name: '+srcFileName);
-// 		gutil.log(compileDir+':      src dir: '+srcFileDir);
-// 		gutil.log(compileDir+':   up to root: '+upToRoot);
-// 		gutil.log(compileDir+':   result src: '+resultSrc);
-// 		gutil.log(compileDir+':');
+		// gutil.log(compileDir+':');
+		// gutil.log(compileDir+':  complie dir: '+compileDir);
+		// gutil.log(compileDir+': complie file: '+compileFileName);
+		// gutil.log(compileDir+': compile path: '+compileFilePath);
+		// gutil.log(compileDir+':     ~ source: '+sourcePath);
+		// gutil.log(compileDir+':     src name: '+srcFileName);
+		// gutil.log(compileDir+':      src dir: '+srcFileDir);
+		// gutil.log(compileDir+':   up to root: '+upToRoot);
+		// gutil.log(compileDir+':   result src: '+resultSrc);
+		// gutil.log(compileDir+':');
 		return resultSrc;
 	}
 
@@ -618,6 +584,7 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 	// 	return '.map' === file.path.substring(file.path.length-4, file.path.length);
 	// }
 
+	// noinspection JSUnusedLocalSymbols
 	return stream.pipe(plumber())
 		.pipe(rename({extname: '.less'}))
 		.pipe(sourcemaps.init())
@@ -641,7 +608,7 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 		.pipe(gulp.dest(dest))
 		.pipe(browserSyncStream()) // update target unminified css-file and its map
 		.pipe(tap(function(cssFile, t) {
-			if( Path.extname(cssFile.relative) == '.css') {
+			if( Path.extname(cssFile.relative) === '.css') {
 				if( ! conf.assets.min_css && ! conf.dev_mode.minify_useless_css ) {
 					gutil.log(
 						gutil.colors.gray('skipping css minify:')
@@ -653,6 +620,7 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 				if( ! fs.existsSync(cssFile.path) ) {
 					gutil.log(gutil.colors.red('css file '+cssFile.relative+' not ready yet.'));
 				}
+				// noinspection JSUnusedLocalSymbols
 				gulp.src(cssFile.path, {dot: true, base: cssFile.base})
 					.pipe(tap(function(file) {
 						file.sourceMap = cssFile.sourceMap;
@@ -680,12 +648,10 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 	;
 }
 function lessWatcher(changedFile, target) {
-	var file = getRelPathByChanged(changedFile)
+	let file = getRelPathByChanged(changedFile)
 		,fileName = Path.basename(file)
 		,stream = null
 		,dest = null
-		,targetTitle = null
-		,styleFile = null
 		,fileStat = fs.lstatSync(changedFile.path)
 	;
 	if( fileStat.isDirectory() ) {
@@ -695,9 +661,9 @@ function lessWatcher(changedFile, target) {
 		case 'main':
 			stream = gulp.src(file, {dot: true, base: conf.less.main.base});
 			stream.pipe(tap(function(file) {
-				var filePath = file.path.replace(/\\/g, '/');
-				var lessDir = conf.curDir+'/'+conf.less.main.base;
-				var relLessFilePath = null;
+				let filePath = file.path.replace(/\\/g, '/');
+				let lessDir = conf.curDir+'/'+conf.less.main.base;
+				let relLessFilePath = null;
 				lessDir = lessDir
 					.replace(/\\/g, '/')
 					.replace(/\/\//g, '/');
@@ -723,7 +689,7 @@ function lessWatcher(changedFile, target) {
 			if(conf.debug) gutil.log(
 				'less watcher: '
 				+gutil.colors.blue(dest+'/'
-					+((fileName == conf.less.components.styleName)
+					+((fileName === conf.less.components.styleName)
 						? '{ '+fileName+' -> '+fileName.replace(/\.less$/, '.css')+' }'
 						: '{ '
 							+'changed: '+fileName+';  compiling: '
@@ -747,10 +713,9 @@ function lessWatcher(changedFile, target) {
  * @order {4}
  */
 gulp.task('css-bundle', function() {
-	var stream = new merge();
+	let stream = new merge();
 
 	stream.add(parseCssBundleImportList(function(bundleName, relBundleFilePath, cssBundleFiles, cssBundleFilesImport) {
-
 		if( conf.production
 			|| !isInteractiveMode
 			|| !conf.dev_mode.no_build_css_bundle_file
@@ -768,29 +733,29 @@ gulp.task('css-bundle', function() {
 			}
 
 			if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
-				var bundleStream = gulp.src(cssBundleFiles, {dot: true})
+				let bundleStream = gulp.src(cssBundleFiles, {dot: true})
 					.pipe(conf.debug ? debug({title: 'css bundle file:', showCount: false}) : gutil.noop())
 					.pipe(plumber())
 					.pipe(sourcemaps.init({loadMaps: true}))
 					.pipe(tap(function(file) {
 						// исправляем в стилях url(...)
-						var cssFile = getRelPathByChanged(file);
+						let cssFile = getRelPathByChanged(file);
 						cssFile = cssFile
 							.replace(/\\/g, '/')
 							.replace(/\/\/\//g, '/')
 							.replace(/\/\//g, '/')
 							.replace(/^\//, '')
 							.replace(/\/$/, '');
-						var cssSrcDir = Path.dirname(cssFile).trim();
-						var dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
+						let cssSrcDir = Path.dirname(cssFile).trim();
+						let dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
 						dest = dest
 							.replace(/\\/g, '/')
 							.replace(/\/\/\//g, '/')
 							.replace(/\/\//g, '/')
 							.replace(/^\//, '')
 							.replace(/\/$/, '');
-						var stepsToRootFromDest = Path.relative('/'+dest, '/');
-						var urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
+						let stepsToRootFromDest = Path.relative('/'+dest, '/');
+						let urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
 
 						file.contents = new Buffer(
 							'\n/* '+cssFile+' */\n'+
@@ -822,7 +787,7 @@ gulp.task('css-bundle', function() {
 					.pipe(sourcemaps.write('./'))
 					.pipe(gulp.dest(conf.less.main.dest))
 					.pipe(tap(function(file) {
-						var relFilePath = getRelPathByChanged(file);
+						let relFilePath = getRelPathByChanged(file);
 						if(Path.extname(relFilePath) === '.css') {
 							if( ! conf.assets.min_css && ! conf.dev_mode.minify_useless_css ) {
 								gutil.log(
@@ -832,7 +797,7 @@ gulp.task('css-bundle', function() {
 								);
 								return;
 							}
-							var dest = Path.dirname(relFilePath);
+							let dest = Path.dirname(relFilePath);
 							stream.add(gulp.src(relFilePath)
 								.pipe(sourcemaps.init({loadMaps: true}))
 								.pipe(rename({extname: '.min.css'}))
@@ -866,28 +831,29 @@ gulp.task('css-bundle', function() {
 		}
 	}));
 
-	stream.on('end', onTaskEnd)
+	// noinspection JSUnresolvedFunction
+	stream.on('end', onTaskEnd);
 	return stream;
 });
 
-gulp.task('css-bundle-parse-imports-list', function(done) {
+gulp.task('css-bundle-parse-imports-list', function() {
 	return parseCssBundleImportList();
 });
 
 function parseCssBundleImportList(afterParseCallback) {
 	cssBundleFiles = [];
-	var cssBundleFilesImport = '';
+	let cssBundleFilesImport = '';
 	return gulp.src(conf.less.main.bundle)
 		.pipe(conf.debug ? debug({title: 'css bundle:', showCount: false}) : gutil.noop())
 		.pipe(tap(function(file) {
-			var bundleName = Path.basename(file.path)
+			let bundleName = Path.basename(file.path)
 				.replace(/^_/, '')
 				.replace(/\.(less|css)$/i, '');
-			var relBundleFilePath = getRelPathByChanged(file);
+			let relBundleFilePath = getRelPathByChanged(file);
 
-			var regim = /\s*@import\s*['"]([a-zA-Z0-9_\-\/\.]+)(?:\.css|\.less)['"]\;\s*/gim;
-			var rei = /\s*@import\s*['"]([a-zA-Z0-9_\-\/\.]+)(?:\.css|\.less)['"]\;\s*/i;
-			var matchedStringList = file.contents
+			let regim = /\s*@import\s*['"]([a-zA-Z0-9_\-\/.]+)(?:\.css|\.less)['"];\s*/gim;
+			let rei = /\s*@import\s*['"]([a-zA-Z0-9_\-\/.]+)(?:\.css|\.less)['"];\s*/i;
+			let matchedStringList = file.contents
 				.toString()
 				.replace(/^\/\/(.*)/gim, '') // remove line comments
 				.replace(/\/\*[\s\S]*?\*\/\n?/gim, '') // remove multi line comments
@@ -896,11 +862,11 @@ function parseCssBundleImportList(afterParseCallback) {
 				&& matchedStringList !== null
 				&& matchedStringList.length > 0
 			) {
-				for(var iMatched=0; iMatched < matchedStringList.length; iMatched++) {
-					var matchedString = matchedStringList[iMatched].trim();
-					var match = matchedString.match(rei);
+				for(let iMatched=0; iMatched < matchedStringList.length; iMatched++) {
+					let matchedString = matchedStringList[iMatched].trim();
+					let match = matchedString.match(rei);
 					if( match ) {
-						var importedCssFile = match[1]+'.css';
+						let importedCssFile = match[1]+'.css';
 						cssBundleFiles.push(conf.less.main.dest+'/'+importedCssFile);
 						cssBundleFilesImport +='@import "'+importedCssFile+'";\n';
 					}
@@ -918,10 +884,10 @@ function parseCssBundleImportList(afterParseCallback) {
  * @task {html}
  * @order {2}
  */
-var htmlTaskCurrentFile = null;
-var nunjucksEnvironment = null;
-var assetsJs = {};
-var assetsCss = {};
+let htmlTaskCurrentFile = null;
+let nunjucksEnvironment = null;
+let assetsJs = {};
+let assetsCss = {};
 gulp.task('html', function(done) {
 	if( null === cssBundleFiles ) {
 		// Если у нас нет данных о файлах css-bundle-а, то сначала запустим
@@ -946,6 +912,7 @@ gulp.task('--html-nunjucks', function() {
 	nunjucksRender.nunjucks.configure();
 	assetsJs = {};
 	assetsCss = {};
+	// noinspection JSUnusedGlobalSymbols
 	return gulp.src(conf.html.pages)
 		.pipe(plumber())
 		.pipe(conf.debug ? debug({title: 'compile page: '}) : gutil.noop())
@@ -985,12 +952,12 @@ gulp.task('--html-nunjucks', function() {
 			,ext: '.html'
 			,manageEnv: function(env) {
 				nunjucksEnvironment = env;
-				env.addExtension('BitrixComponents', new nunjucksBitrixComponentTag());
+				env.addExtension('BitrixComponents', new NunjucksBitrixComponentTag());
 				nunjucksIncludeData.install(env);
 			}
 		}))
 		.pipe(tap(function(file) {
-			var cssOut = '<!-- @bx_component_assets_css -->\n';
+			let cssOut = '<!-- @bx_component_assets_css -->\n';
 			if( null !== htmlTaskCurrentFile
 				&& typeof(assetsCss[htmlTaskCurrentFile]) != 'undefined'
 				&& assetsCss[htmlTaskCurrentFile].length > 0
@@ -1000,7 +967,7 @@ gulp.task('--html-nunjucks', function() {
 					cssOut += '<link type="text/css" rel="stylesheet" href="'+href+'">\n';
 				}
 			}
-			var jsOut = '<!-- @bx_component_assets_js -->\n';
+			let jsOut = '<!-- @bx_component_assets_js -->\n';
 			if( null !== htmlTaskCurrentFile
 				&& typeof(assetsJs[htmlTaskCurrentFile]) != 'undefined'
 				&& assetsJs[htmlTaskCurrentFile].length > 0
@@ -1022,6 +989,7 @@ gulp.task('--html-nunjucks', function() {
 
 });
 
+// noinspection JSUnusedLocalSymbols
 /**
  * Таким образом будет эмулироваться поведение компонентов битрикс
  * используем теги вида {% bx_component
@@ -1034,22 +1002,21 @@ gulp.task('--html-nunjucks', function() {
  * TODO: write new tag {% bx_asset_js  "path/to/file.js"  %}
  * TODO: write new tag {% bx_asset_css "path/to/file.css" %}
  */
-function nunjucksBitrixComponentTag(env) {
-	var environment = env;
+function NunjucksBitrixComponentTag(env) {
 	this.tags = ['bx_component'];
+	// noinspection JSUnusedLocalSymbols
 	this.parse = function(parser, nodes, lexer) {
 		// get the tag token
-		var tok = parser.nextToken();
-		var args = parser.parseSignature(null, true);
-		if (args.children.length == 0) {
+		let tok = parser.nextToken();
+		let args = parser.parseSignature(null, true);
+		if (args.children.length === 0) {
 			args.addChild(new nodes.Literal(0, 0, ""));
 		}
 		parser.advanceAfterBlockEnd(tok.value);
 		return new nodes.CallExtension(this, tok.value, args, []);
 	};
 	this.bx_component = function(context, args) {
-		var nunjucks = nunjucksRender.nunjucks;
-		var typeof_name = typeof(args.name);
+		let nunjucks = nunjucksRender.nunjucks;
 		if( 'string' != typeof(args.name) ) {
 			throw 'component name not set';
 		}
@@ -1061,25 +1028,31 @@ function nunjucksBitrixComponentTag(env) {
 			args.template = args.tpl;
 		}
 		args.parent = (typeof(args.parent) !== 'string') ? '' : args.parent;
-		var name = args.name.replace(/:/, '/');
-		var template = (args.template.length < 1) ? '.default' : args.template;
-		var parent = '';
+		let name = args.name.replace(/:/, '/');
+		let template = (args.template.length < 1) ? '.default' : args.template;
+		let parent = '';
 		if( 'string' == typeof(args.parent) && args.parent.length > 0 ) {
 			parent = args.parent+'/';
 		}
-		var page = 'template';
-		if( 'string' == typeof(args.complex_page) ) page = args.complex_page;
-		if( 'string' == typeof(args.cmpx_page) ) page = args.cmpx_page;
-		if( 'string' == typeof(args.cmp_page) ) page = args.cmp_page;
-		if( 'string' == typeof(args.cpx_page) ) page = args.cpx_page;
-		if( 'string' == typeof(args.page) ) page = args.page;
-		var ctx = extend({}, context.ctx);
+		// noinspection JSUnresolvedVariable
+		let page = 'string' == typeof(args.complex_page)
+			? args.complex_page
+			: 'string' == typeof(args.cmpx_page)
+				? args.cmpx_page
+				: 'string' == typeof(args.cmp_page)
+					? args.cmp_page
+					: 'string' == typeof(args.cpx_page)
+						? args.cpx_page
+						:'string' == typeof(args.page)
+							? args.page
+							:'template';
+		let ctx = extend({}, context.ctx);
 		ctx.templateUrl = '@components/'+parent+name+'/'+template;
 		ctx.templatePath = ctx.templateUrl.replace(/@components/, 'components');
 		ctx.templateFolder = ( typeof(ctx.CMP_BASE) != 'undefined' )
 								? ctx.templateUrl.replace(/@components/, ctx.CMP_BASE)
 								: ctx.templatePath;
-		var templateFilePath = ctx.templatePath+'/'+page+'.njk';
+		let templateFilePath = ctx.templatePath+'/'+page+'.njk';
 		if( ! fs.existsSync(templateFilePath) ) {
 			throw 'bx_component error: component "'+name+'/'+template+'" template file not found'
 				+' ('+templateFilePath+')';
@@ -1088,22 +1061,22 @@ function nunjucksBitrixComponentTag(env) {
 			throw 'bx_component error: current nunjucks template unknown';
 		}
 
-		var addAsset = function(assetStore, assetName, isMinified, fileName, fileNameMin) {
+		function addAsset(assetStore, assetName, isMinified, fileName, fileNameMin) {
 			isMinified = !!isMinified;
-			var fileExists = false;
-			var fileExistsMark = '[-]';
-			var fileUrl = ctx.templateUrl+'/'+(isMinified ? fileNameMin : fileName);
-			var fileHref = fileUrl.replace(/@components/,
+			let fileExists = false;
+			let fileExistsMark = '[-]';
+			let fileUrl = ctx.templateUrl+'/'+(isMinified ? fileNameMin : fileName);
+			let fileHref = fileUrl.replace(/@components/,
 				( typeof(ctx.CMP_BASE) != 'undefined' )
 				? ctx.CMP_BASE : 'components'
 			);
-			var filePath = ctx.templatePath+'/'+(isMinified ? fileNameMin : fileName);
+			let filePath = ctx.templatePath+'/'+(isMinified ? fileNameMin : fileName);
 			if( typeof(assetStore[htmlTaskCurrentFile]) == 'undefined' ) {
 				assetStore[htmlTaskCurrentFile] = [];
 			}
 
 			if( isMinified ) {
-				if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) != -1 ) {
+				if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) !== -1 ) {
 					return;
 				}
 				if( fs.existsSync(filePath) ) {
@@ -1118,7 +1091,7 @@ function nunjucksBitrixComponentTag(env) {
 						? ctx.CMP_BASE : 'components'
 					);
 					filePath = ctx.templatePath+'/'+fileName;
-					if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) != -1 ) {
+					if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) !== -1 ) {
 						return;
 					}
 					if( fs.existsSync(filePath) ) {
@@ -1128,7 +1101,7 @@ function nunjucksBitrixComponentTag(env) {
 				}
 			}
 			else {
-				if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) != -1 ) {
+				if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) !== -1 ) {
 					return;
 				}
 				if( fs.existsSync(filePath) ) {
@@ -1146,7 +1119,7 @@ function nunjucksBitrixComponentTag(env) {
 			if( fileExists ) {
 				assetStore[htmlTaskCurrentFile].push(fileHref);
 			}
-		};
+		}
 
 		addAsset(assetsJs, ' js', conf.html.bx_component.use_minified_js, 'script.js', 'script.min.js');
 		addAsset(assetsCss, 'css' ,conf.html.bx_component.use_minified_css, 'style.css', 'style.min.css');
@@ -1160,7 +1133,8 @@ function nunjucksBitrixComponentTag(env) {
 		}
 
 		// render bx_component
-		var templateFileContent = fs.readFileSync(
+		// noinspection JSCheckFunctionSignatures
+		let templateFileContent = fs.readFileSync(
 			conf.curDir+'/'+templateFilePath, {encoding: 'utf8'}
 		);
 		templateFileContent = templateFileContent.replace(
@@ -1199,16 +1173,16 @@ gulp.task('js', function(done) {
  */
 function tapExternalizeBroserifySourceMap(bundleDir) {
 	return function(file) {
-		var mapFileName = Path.basename(file.path)+'.map';
-		var mapFilePath = conf.curDir+'/'+bundleDir+'/'+mapFileName;
-		var src = file.contents.toString();
-		var converter = convertSourceMap.fromSource(src);
+		let mapFileName = Path.basename(file.path)+'.map';
+		let mapFilePath = conf.curDir+'/'+bundleDir+'/'+mapFileName;
+		let src = file.contents.toString();
+		let converter = convertSourceMap.fromSource(src);
 		fs.writeFileSync(
 			mapFilePath,
 			converter
 				.toJSON()
 				.replace(new RegExp(''+conf.curDir+'/', 'gim'), '../')
-				.replace(new RegExp('"js/([a-zA-Z0-9\\-\\_\\.]+)/', 'gim'), '"../js/$1/')
+				.replace(new RegExp('"js/([a-zA-Z0-9\\-_.]+)/', 'gim'), '"../js/$1/')
 		);
 		file.contents = new Buffer(
 			convertSourceMap.removeComments(src).trim()
@@ -1221,15 +1195,16 @@ function tapExternalizeBroserifySourceMap(bundleDir) {
  * @task {js-bundle}
  * @order {7}
  */
-gulp.task('js-bundle', function(doneTask) {
+gulp.task('js-bundle', function() {
 	return new Promise(async function(finishTaskLockPromise, rejectTaskLockPromise) {
-		var streams = merge();
-		var bundleDir = Path.dirname(conf.js.bundle.out);
-		var srcFilesStream = gulp.src(conf.js.bundle.src, {dot: true, base: '.'})
+		let streams = merge();
+		let bundleDir = Path.dirname(conf.js.bundle.out);
+		// noinspection JSUnusedLocalSymbols
+		let srcFilesStream = gulp.src(conf.js.bundle.src, {dot: true, base: '.'})
 			//.pipe(conf.debug ? debug({title: 'js bundle src:'}) : gutil.noop())
 			.pipe(plumber())
 			.pipe(tap(function(file) {
-				var  bundleSrcFile = getRelPathByChanged(file)
+				let  bundleSrcFile = getRelPathByChanged(file)
 					,bundleName = Path.basename(bundleSrcFile)
 						.replace(/^_/, '')
 						.replace(/\.js$/, '')
@@ -1237,13 +1212,14 @@ gulp.task('js-bundle', function(doneTask) {
 						.replace( /\*/, bundleName )
 					;
 				//gutil.log(bundleName+': '+gutil.colors.blue(bundleDir+'/'+bundleFile));
-				if(bundleName == 'vendor') {
+				if(bundleName === 'vendor') {
+					// noinspection JSUnresolvedFunction
 					gutil.log(gutil.colors.bgRed(
 						'Bundle name "vendor" was reserved. Please rename file "'+bundleSrcFile+'"'
 					));
 				}
 				else {
-					var bfy = browserify({
+					let bfy = browserify({
 							entries: bundleSrcFile,
 							debug: true
 							//paths: ['./node_modules', './js/src']
@@ -1257,7 +1233,7 @@ gulp.task('js-bundle', function(doneTask) {
 						// .transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
 						// .transform(vueify)
 						;
-					var bundleStream = bfy.bundle()
+					let bundleStream = bfy.bundle()
 						.pipe(vsource(bundleFile))
 						.pipe(plumber())
 						.pipe(gbuffer())
@@ -1287,7 +1263,7 @@ gulp.task('js-bundle', function(doneTask) {
 			.pipe(tap(function(file) {
 				// tap() убирать отсюда нельзя.
 				// Он делает какое-то преобразование со stream-ом,
-				// после которого метод on('end') начинает исполняться корректно  
+				// после которого метод on('end') начинает исполняться корректно
 
 				// console.log('## debug ##', {
 				// 	path: file.path,
@@ -1322,45 +1298,47 @@ gulp.task('js-bundle', function(doneTask) {
  * @order {8}
  */
 gulp.task('js-vendor-bundle', function() {
-	var bundleDir = Path.dirname(conf.js.vendor.out)
+	let bundleDir = Path.dirname(conf.js.vendor.out)
 		,bundleFile = Path.basename(conf.js.vendor.out);
-	var bfy = browserify(
+	let bfy = browserify(
 		conf.curDir+'/'+conf.js.vendor.src,
 		{
 			debug: true
 			// ,global: true
 			,paths: [
 				// подключаем модули из
-				,conf.curDir+'/node_modules'
+				conf.curDir+'/node_modules'
 				,conf.curDir+'./js/vendor'
 				,__dirname+'/node_modules'
 			]
 		}
 	);
-	var bfyReqShimsExists = false;
-	var bfyReqShims = {};
+	let bfyReqShimsExists = false;
+	let bfyReqShims = {};
 	function addRequireResoverShim(reqLib, libPath) {
-		if( '.js' == libPath.substring(libPath.length-3, libPath.length) ) {
+		if( '.js' === libPath.substring(libPath.length-3, libPath.length) ) {
 			//onsole.log('shim: '+reqLib+' => '+packageJson.browser[reqLib]);
 			bfyReqShims[reqLib] = conf.curDir+'/'+libPath;
 			bfyReqShimsExists = true;
 		}
 	}
 	if( fs.existsSync(conf.curDir+'/package.json') ) {
-		var packageJson = require(conf.curDir+'/package.json');
+		let packageJson = require(conf.curDir+'/package.json');
 		if( typeof(packageJson['browserify-shim']) != 'undefined') {
-			for(var bfyShimLib in packageJson['browserify-shim']) {
+			for(let bfyShimLib in packageJson['browserify-shim']) {
+				// noinspection JSUnfilteredForInLoop
 				addRequireResoverShim(bfyShimLib, packageJson['browserify-shim'][bfyShimLib]);
 			}
 		}
 		if( typeof(packageJson['browser']) != 'undefined') {
-			for(var browserShimLib in packageJson.browser) {
+			for(let browserShimLib in packageJson.browser) {
+				// noinspection JSUnfilteredForInLoop
 				addRequireResoverShim(browserShimLib, packageJson.browser[browserShimLib]);
 			}
 		}
 	}
 	if( bfyReqShimsExists ) {
-		for(var confShimLib in conf.js.vendor.shim) {
+		for(let confShimLib in conf.js.vendor.shim) {
 			bfyReqShims[confShimLib] = conf.curDir+'/'+conf.js.vendor.shim[confShimLib];
 		}
 		//onsole.log(bfyReqShims);
@@ -1377,7 +1355,7 @@ gulp.task('js-vendor-bundle', function() {
 	// 		gutil.log(gutil.colors.blue('browserify transform: '+src));
 	// 	})
 	// }
-	
+
 	function handleBrowserifyBundler(err) {
 		if(err) {
 			gutil.log(
@@ -1387,7 +1365,7 @@ gulp.task('js-vendor-bundle', function() {
 			);
 		}
 	}
-	var bundleStream = bfy.bundle(handleBrowserifyBundler)
+	let bundleStream = bfy.bundle(handleBrowserifyBundler)
 		.pipe(vsource(bundleFile))
 		.pipe(vbuffer())
 		.pipe(rename(bundleFile))
@@ -1440,10 +1418,8 @@ gulp.task('js-scripts', function(done) {
 	}
 });
 function jsScriptStreamMinifyHandler(stream, dest, debugTitle) {
-	var debugMode = true;
-	if( 'string' != typeof(debugTitle)
-		|| '' == debugTitle
-	) {
+	let debugMode = true;
+	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
 		debugMode = false;
 	}
 	return stream
@@ -1465,10 +1441,9 @@ function jsScriptStreamMinifyHandler(stream, dest, debugTitle) {
 	;
 }
 function jsScriptsWatcher(changedFile) {
-	var file = getRelPathByChanged(changedFile)
+	let file = getRelPathByChanged(changedFile)
 		,dest = Path.dirname(file)
 		,fileName = Path.basename(file)
-		,filterSrcMaps = filter('*.js.map', {restore: true})
 		,fileStat = fs.lstatSync(changedFile.path)
 	;
 	if( fileStat.isDirectory() ) {
@@ -1481,8 +1456,7 @@ function jsScriptsWatcher(changedFile) {
 	);
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
 		return jsScriptStreamMinifyHandler(
-			gulp.src(file), dest,
-			false ? 'js-script watcher:' : ''
+			gulp.src(file), dest,''//'js-script watcher:'
 		);
 	}
 	if(conf.debug) {
@@ -1493,7 +1467,6 @@ function jsScriptsWatcher(changedFile) {
 		);
 	}
 	return gutil.noop();
-	
 }
 
 
@@ -1503,8 +1476,8 @@ function jsScriptsWatcher(changedFile) {
  * @order {11}
  */
 gulp.task('svg-icons-font', function() {
-	var runTimestamp = Math.round(Date.now()/1000);
-	var fontName = 'svgi';
+	// let runTimestamp = Math.round(Date.now()/1000);
+	let fontName = 'svgi';
 	return gulp.src(conf.svgIconFont.src, {dot: true, base: '.'})
 		.pipe(plumber())
 		.pipe(iconfontCss({
@@ -1556,13 +1529,14 @@ gulp.task('images', function() {
  * @task {sprites}
  * @order {10}
  */
-gulp.task('sprites', function(done) {
-	var resultStream = merge();
+gulp.task('sprites', function() {
+	let resultStream = merge();
 	// нам над достать миксины из первого сспрайта и положить в отдельный файл
-	var spriteBatchCounter = 0;
+	let spriteBatchCounter = 0;
 	getSpriteBatchList().forEach(function(spriteBatch) {
-		var filterSpriteImg = filter('*.png', {restore: true})
+		let filterSpriteImg = filter('*.png', {restore: true})
 			,filterLess = filter('*.less', {restore: true});
+		// noinspection JSUnusedGlobalSymbols
 		spriteBatch.stream
 			.pipe(conf.debug ? debug({title: 'sprite "'+spriteBatch.name+'" image:'}) : gutil.noop())
 			// Компилируем спрайты
@@ -1577,7 +1551,7 @@ gulp.task('sprites', function(done) {
 			// Убираем из less файлов лишнее и выделяем миксины в отдельный файл
 			.pipe(tap(function(file) {
 				if(Path.extname(file.path) === '.less') {
-					var fileContent = file.contents.toString();
+					let fileContent = file.contents.toString();
 					// remove line comments
 					fileContent = fileContent.replace(/^\/\/(.*)/gmi, '');
 					// remove multi line comments
@@ -1588,22 +1562,26 @@ gulp.task('sprites', function(done) {
 					// как это провернуть написано тут:
 					// https://github.com/gulpjs/gulp/blob/master/docs/recipes/make-stream-from-buffer.md
 					// и сделано по аналогии
-					if(0 == spriteBatchCounter) {
-						var matches = fileContent.match(/^\.sprites?(?:\(|-)[\s\S]*?\n}/gmi)
+					if(0 === spriteBatchCounter) {
+						let matches = fileContent.match(/^\.sprites?[(\-][\s\S]*?\n}/gmi)
 							,mixinsContent = '';
 						matches.forEach(function(text) {
 							mixinsContent += text+'\n';
 						});
-						var lessMixinsFileName = Path.basename(conf.sprites.dest.lessMixins)
+						// noinspection JSUnusedLocalSymbols
+						let lessMixinsFileName = Path.basename(conf.sprites.dest.lessMixins)
 							,lessMixinsDir = Path.dirname(conf.sprites.dest.lessMixins)
 							,lessMixinsSpriteStream = vsource(lessMixinsFileName)
 							,lessMixinsSpriteStreamEnd = lessMixinsSpriteStream
 						;
+						// noinspection JSUnresolvedFunction
 						lessMixinsSpriteStream.write(mixinsContent);
 						process.nextTick(function() {
+							// noinspection JSUnresolvedFunction
 							lessMixinsSpriteStream.end();
 						});
 
+						// noinspection JSUnresolvedFunction
 						lessMixinsSpriteStream
 							.pipe(conf.debug ? debug({title: 'spriteBatch less mixin:'}) : gutil.noop())
 							.pipe(vbuffer())
@@ -1627,8 +1605,8 @@ gulp.task('sprites', function(done) {
 			//.pipe((!conf.sprites.minify)?gutil.noop():imagemin()) - падает с ошибкой
 			.pipe((!conf.sprites.minify)?gutil.noop():tap(function(file) {
 				// берем уже сохраненный файл в новый стрим
-				var relFilePath = getRelPathByChanged(file)
-					,destDir = Path.dirname(relFilePath)
+				let relFilePath = getRelPathByChanged(file)
+					,destDir = Path.dirname(relFilePath);
 				return gulp.src(relFilePath, {dot: true})
 					.pipe(imagemin())
 					.pipe(gulp.dest(destDir))
@@ -1644,14 +1622,14 @@ gulp.task('sprites', function(done) {
 	return resultStream;
 });
 
-var spriteBatchNames = null;
+let spriteBatchNames = null;
 function getSpriteBatchNames() {
 	if(null == spriteBatchNames) {
-		var spritesDir = conf.curDir+'/'+conf.sprites.src;
-		var dirItems = fs.readdirSync(spritesDir);
+		let spritesDir = conf.curDir+'/'+conf.sprites.src;
+		let dirItems = fs.readdirSync(spritesDir);
 		spriteBatchNames = [];
 		dirItems.forEach(function(item) {
-			var stat = fs.lstatSync(spritesDir+'/'+item);
+			let stat = fs.lstatSync(spritesDir+'/'+item);
 			if( stat.isDirectory() ) {
 				spriteBatchNames.push(item);
 			}
@@ -1661,7 +1639,7 @@ function getSpriteBatchNames() {
 	return spriteBatchNames;
 }
 
-var spriteBatchList = null;
+let spriteBatchList = null;
 function getSpriteBatchList() {
 	if( null != spriteBatchList ) return spriteBatchList;
 	if( getSpriteBatchNames().length > 0 ) {
@@ -1683,9 +1661,9 @@ function getSpriteBatchList() {
  * @ task {bower}
  */
 gulp.task('bower', function() {
-// 	var bowerMainFiles = require('main-bower-files');
+// 	let bowerMainFiles = require('main-bower-files');
 // 	console.log(bowerMainFiles());
-// 	var bowerOverrides = require('gulp-bower-overrides');
+// 	let bowerOverrides = require('gulp-bower-overrides');
 // 	return gulp.src('bower_components/*/bower.json')
 // 		.pipe(bowerOverrides())
 // 		.pipe(gulp.dest('bower_components'))
@@ -1729,7 +1707,7 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 
 	let depth = treePath.length+1;
 	let dependecyOf = (treePath.length > 0)?treePath[treePath.length-1]:'';
-	
+
 	let dependencies = {};
 
 	//_debug('call', arguments);
@@ -1740,14 +1718,14 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 			_debug('| '.repeat(depth)+'rejected by depth limit');
 			reject('less imports depth limit succeeded');
 		}
-		
+
 		gulp.src(src, {dot: true, base: '.'})
 		.pipe(tap(function(file) {
 			let lessCode = file.contents.toString();
 			_debug('| '.repeat(depth)+'- file', file.path);
 
 			let dir = Path.dirname(file.path);
-			let fileName = Path.basename(file.path);
+			// let fileName = Path.basename(file.path);
 			if( typeof(dependencies[file.path]) != 'object'
 				|| !Array.isArray(dependencies[file.path])
 			) {
@@ -1771,7 +1749,7 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 					_debug('| '.repeat(depth+1)+'- import:', dep);
 					dependencies[file.path].push(dep);
 				});
-			}	
+			}
 		}))
 		.on('error', function(err) {
 			reject(err);
@@ -1780,7 +1758,7 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 			_debug('| '.repeat(depth-1)+'@ END'+(dependecyOf?' for '+dependecyOf:''));
 			//_debug('| '.repeat(depth-1)+'# treePath', treePath);
 			//_debug('| '.repeat(depth-1)+'# dependecyOf', dependecyOf);
-			
+
 			for(let filePath in dependencies) {
 				if( dependencies[filePath].length > 0 ) {
 					_debug('| '.repeat(depth)+'|-> RECURSION for '+filePath);
@@ -1797,7 +1775,8 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 						});
 					});
 					try {
-						let recursionResult = await parseLessDependencies(
+						//let recursionResult =
+						await parseLessDependencies(
 							dependencies[filePath],//.slice(),
 							deeperTreePath,
 							deepDependenciesIndex
@@ -1839,9 +1818,9 @@ gulp.task('test-less-imports-tree', function() {
  * @task {watch}
  * @order {13}
  */
-var watchers = [];
+let watchers = [];
 const WATCH_OPTIONS = {cwd: './'};
-var lessDeepDependenciesIndex = null;
+let lessDeepDependenciesIndex = null;
 gulp.task('watch', function(done) {
 	isInteractiveMode = true;
 	if( watchers.length > 0 ) {
@@ -1853,7 +1832,7 @@ gulp.task('watch', function(done) {
 });
 
 
-gulp.task('add-watchers', async function (done) {
+gulp.task('add-watchers', async function () {
 	// html
 	watchers.push(gulp.watch(conf.html.watch, WATCH_OPTIONS, ['html']));
 
@@ -1872,7 +1851,7 @@ gulp.task('add-watchers', async function (done) {
 			&& Array.isArray(lessDeepDependenciesIndex[changed.path])
 			&& lessDeepDependenciesIndex[changed.path].length > 0
 		) {
-			let metchedComponentFiles = [];
+			let matchedComponentFiles = [];
 			let matchedMainFiles = [];
 			lessDeepDependenciesIndex[changed.path].forEach(function(dependentFile) {
 				let dependentFileRelPath = getRelPathByChanged({path: dependentFile});
@@ -1880,10 +1859,11 @@ gulp.task('add-watchers', async function (done) {
 				let filteredMain = false;
 				let matchedComponent = false;
 				let filteredComponent = false;
+				// noinspection DuplicatedCode
 				for(let mainFilePatternKey=0; mainFilePatternKey < conf.less.main.files.length; mainFilePatternKey++) {
 					let mainFilePattern = conf.less.main.files[mainFilePatternKey];
 					if( minimatch(dependentFileRelPath, mainFilePattern, {flipNegate: true}) ) {
-						if(mainFilePattern[0] == '!') {
+						if(mainFilePattern[0] === '!') {
 							filteredMain = true;
 							break;
 						}
@@ -1892,10 +1872,11 @@ gulp.task('add-watchers', async function (done) {
 						}
 					}
 				}
+				// noinspection DuplicatedCode
 				for(let patternKey=0; patternKey < conf.less.components.files.length; patternKey++) {
 					let componentPattern = conf.less.components.files[patternKey];
 					if( minimatch(dependentFileRelPath, componentPattern, {flipNegate: true}) ) {
-						if(componentPattern[0] == '!') {
+						if(componentPattern[0] === '!') {
 							filteredComponent = true;
 							break;
 						}
@@ -1908,13 +1889,13 @@ gulp.task('add-watchers', async function (done) {
 					matchedMainFiles.push(dependentFile);
 				}
 				if( matchedComponent && ! filteredComponent ) {
-					metchedComponentFiles.push(dependentFile);
+					matchedComponentFiles.push(dependentFile);
 				}
 			});
 			matchedMainFiles.forEach(function(fileFullPath) {
 				lessWatcher({path: fileFullPath}, 'main');
 			});
-			metchedComponentFiles.forEach(function(fileFullPath) {
+			matchedComponentFiles.forEach(function(fileFullPath) {
 				lessWatcher({path: fileFullPath}, 'components');
 			});
 		}
@@ -1939,8 +1920,9 @@ gulp.task('add-watchers', async function (done) {
 	}));
 	//done(); нет смысла если используем async-функцию
 });
-gulp.task('remove-watchers', async function(done) {
+gulp.task('remove-watchers', async function() {
 	lessDeepDependenciesIndex = null;
+	// noinspection JSUnusedLocalSymbols
 	watchers.forEach(function(watcher, index) {
 		watcher.end();
 	});
@@ -1966,9 +1948,9 @@ gulp.task('--finish-interactive-mode-task-action', function(done) {
  * @order {16}
  */
 gulp.task('watch-hotkeys', function() {
-	
-	var keyListener = new KeyPressEmitter();
-	
+
+	let keyListener = new KeyPressEmitter();
+
 	keyListener.on('showHotKeysHelp', function() {
 		runSequence('help-hk');
 	});
@@ -2097,7 +2079,7 @@ gulp.task('watch-hotkeys', function() {
 	});
 	keyListener.on('switchProductionMode', function() {
 		conf.production = !conf.production;
-		gutil.log(gutil.colors.magenta('Production mode switched to "'+(conf.production?'true':'false')+'"'))
+		gutil.log(gutil.colors.magenta('Production mode switched to "'+(conf.production?'true':'false')+'"'));
 		gutil.log(gutil.colors.green('After production mode switch you should to do full rebuild [key "b"] to take effect.'));
 	});
 	keyListener.on('reloadAll', function() {
@@ -2118,13 +2100,21 @@ gulp.task('watch-hotkeys', function() {
 });
 gulp.task('keys-debug', function() {
 	isInteractiveMode = true;
-	var keyListener = new KeyPressEmitter();
+	let keyListener = new KeyPressEmitter();
 	keyListener.debug = true;
 	keyListener.start();
 });
 
 
 class KeyPressEmitter extends EventEmitter {
+
+	// keyAlt = '\u001b';
+	// key_w = '\u0017';
+	// // sequences tested in linux
+	// sequence_ctrl_alt_w = keyAlt+key_w;
+	// sequence_ctrl_r = '\u0012';
+	// sequence_ctrl_l = '\t';
+	// sequence_ctrl_s = '\u0013';
 
 	constructor() {
 		super();
@@ -2134,127 +2124,132 @@ class KeyPressEmitter extends EventEmitter {
 	start() {
 		//process.stdin.setEncoding('utf8');
 		process.stdin.setRawMode(true);
-		const keyAlt = '\u001b';
-		const key_w = '\u0017';
-		// sequences tested in linux
-		const sequence_ctrl_alt_w = keyAlt+key_w;
-		const sequence_ctrl_r = '\u0012';
-		const sequence_ctrl_l = '\t';
-		const sequence_ctrl_s = '\u0013';
-		const _this = this;
-		process.stdin.on('data', function(data) {
-			const key = decodeKeypress(data);
+		process.stdin.on('data', this.onData);
+	}
 
-			if( ( false === key.shift && key.name == 'q')
-				|| (key.ctrl && key.name === 'c')
-			) {
-				process.exit();
-			}
-			if(_this.debug) {
-				console.log('decode keypress\n', key, data.toString());
-			}
-			else if( key.sequence == '\r' ) {
-				console.log();
-			}
+	onData(data) {
+		/**
+		 * @typedef {Object} DecodedKey
+		 * @property {string} name
+		 * @property {string} sequence
+		 * @property {boolean} shift
+		 * @property {boolean} meta
+		 * @property {boolean} ctrl
+		 */
+		/**
+		 * @type {DecodedKey}
+		 */
+		const key = decodeKeypress(data);
 
-			if( key.name == 'f1' && false === key.shift
-				&& false === key.ctrl && false === key.meta
-			) {
-				gutil.log('Hot key [F1]: Show hot keys help');
-				_this.emit('showHotKeysHelp');
-			}
-			else if( key.name == 'f2' && false === key.shift
-				&& false === key.ctrl && false === key.meta
-			) {
-				gutil.log('Hot key [F2]: Show help');
-				_this.emit('showHelp');
-			}
-			else if( true === key.shift && key.name == 'w' ) {
-				gutil.log('Hot key [Shift+w]: Remove watchers');
-				_this.emit('removeWatchers');
-			}
-			else if( false === key.shift && key.name == 'w' ) {
-				gutil.log('Hot key [w]: Reload watchers');
-				_this.emit('reloadWatchers');
-			}
-			else if( false === key.shift && key.name == 'h' ) {
-				gutil.log('Hot key [h]: Build html');
-				_this.emit('buildHtml');
-			}
-			else if( true === key.shift && key.name == 's' ) {
-				gutil.log('Hot key [Shift+s]: Build main styles and bundle');
-				_this.emit('buildMainStylesAndBundle');
-			}
-			else if( false === key.shift && key.name == 's' ) {
-				gutil.log('Hot key [s]: Build main styles (w/o -bundle)');
-				_this.emit('buildMainStyles');
-			}
-			else if( true === key.shift && key.name == 'a' ) {
-				gutil.log('Hot key [Shift+a]: Build all styles (main + bundle + components)');
-				_this.emit('buildAllStylesAndBundle');
-			}
-			else if( false === key.shift && key.name == 'a' ) {
-				gutil.log('Hot key [Shift+a]: Build all styles (main + components)');
-				_this.emit('buildAllStyles');
-			}
-			else if( true === key.shift && key.name == 'l' ) {
-				gutil.log('Hot key [l]: Build obly bundle of main styles');
-				_this.emit('buildCssBundle');
-			}
-			else if( false === key.shift && key.name == 'l' ) {
-				gutil.log('Hot key [Shift+l]: Build component styles');
-				_this.emit('buildComponentStyles');
-			}
-			else if( false === key.shift && key.name == 'j' ) {
-				gutil.log('Hot key [j]: Build js-bundle');
-				_this.emit('buildJsBundle');
-			}
-			else if( true === key.shift && key.name == 'j' ) {
-				gutil.log('Hot key [Shift+j]: Build js-vendor-bundle');
-				_this.emit('buildJsVendorBundle');
-			}
-			else if( false === key.shift && key.name == 'k' ) {
-				gutil.log('Hot key [k]: Build js-scripts (w/o bundles)');
-				_this.emit('buildJsScripts');
-			}
-			else if( true === key.shift && key.name == 'k' ) {
-				gutil.log('Hot key [Shift+k]: Build js-scripts and all bundles');
-				_this.emit('buildJs');
-			}
-			else if( key.shift && key.name == 'i' && key.sequence == 'I' ) {
-				gutil.log('Hot key [Shift+i]: Build sprites');
-				_this.emit('buildSprites');
-			}
-			else if( false === key.shift && key.name == 'i' && key.sequence == 'i' ) {
-				gutil.log('Hot key [i]: Optimize images');
-				_this.emit('optimizeImages');
-			}
-			else if( false === key.shift && key.name == 'f' ) {
-				gutil.log('Hot key [f]: Build csv-icons-font');
-				_this.emit('buildCsvIconsFont');
-			}
-			else if( false === key.shift && key.name == 'g' ) {
-				gutil.log('Hot key [g]: Download goole-web-fonts');
-				_this.emit('downloadGoogleWebFonts');
-			}
-			else if( key.shift && key.name == 'd' && key.sequence == 'D' ) {
-				gutil.log('Hot key [Shift+d]: Switch debug mode');
-				_this.emit('switchDebugMode');
-			}
-			else if( key.shift && key.name == 'p' && key.sequence == 'P' ) {
-				gutil.log('Hot key [Shift+p]: Switch production mode');
-				_this.emit('switchProductionMode');
-			}
-			else if( false === key.shift && key.name == 'r' ) {
-				gutil.log('Hot key [r]: Reload all (almost for components)');
-				_this.emit('reloadAll');
-			}
-			else if( false === key.shift && key.name == 'b' ) {
-				gutil.log('Hot key [b]: Full build');
-				_this.emit('build');
-			}
-			// TODO: Дописать запуск разных задач, которые отсутствуют в watcher-ах типа спрайтов, картинок и пр.
-		});
+		if( ( false === key.shift && key.name === 'q')
+			|| (key.ctrl && key.name === 'c')
+		) {
+			process.exit();
+		}
+		if(this.debug) {
+			console.log('decode keypress\n', key, data.toString());
+		}
+		else if( key.sequence === '\r' ) {
+			console.log();
+		}
+
+		if( key.name === 'f1' && false === key.shift
+			&& false === key.ctrl && false === key.meta
+		) {
+			gutil.log('Hot key [F1]: Show hot keys help');
+			this.emit('showHotKeysHelp');
+		}
+		else if( key.name === 'f2' && false === key.shift
+			&& false === key.ctrl && false === key.meta
+		) {
+			gutil.log('Hot key [F2]: Show help');
+			this.emit('showHelp');
+		}
+		else if( true === key.shift && key.name === 'w' ) {
+			gutil.log('Hot key [Shift+w]: Remove watchers');
+			this.emit('removeWatchers');
+		}
+		else if( false === key.shift && key.name === 'w' ) {
+			gutil.log('Hot key [w]: Reload watchers');
+			this.emit('reloadWatchers');
+		}
+		else if( false === key.shift && key.name === 'h' ) {
+			gutil.log('Hot key [h]: Build html');
+			this.emit('buildHtml');
+		}
+		else if( true === key.shift && key.name === 's' ) {
+			gutil.log('Hot key [Shift+s]: Build main styles and bundle');
+			this.emit('buildMainStylesAndBundle');
+		}
+		else if( false === key.shift && key.name === 's' ) {
+			gutil.log('Hot key [s]: Build main styles (w/o -bundle)');
+			this.emit('buildMainStyles');
+		}
+		else if( true === key.shift && key.name === 'a' ) {
+			gutil.log('Hot key [Shift+a]: Build all styles (main + bundle + components)');
+			this.emit('buildAllStylesAndBundle');
+		}
+		else if( false === key.shift && key.name === 'a' ) {
+			gutil.log('Hot key [Shift+a]: Build all styles (main + components)');
+			this.emit('buildAllStyles');
+		}
+		else if( true === key.shift && key.name === 'l' ) {
+			gutil.log('Hot key [l]: Build obly bundle of main styles');
+			this.emit('buildCssBundle');
+		}
+		else if( false === key.shift && key.name === 'l' ) {
+			gutil.log('Hot key [Shift+l]: Build component styles');
+			this.emit('buildComponentStyles');
+		}
+		else if( false === key.shift && key.name === 'j' ) {
+			gutil.log('Hot key [j]: Build js-bundle');
+			this.emit('buildJsBundle');
+		}
+		else if( true === key.shift && key.name === 'j' ) {
+			gutil.log('Hot key [Shift+j]: Build js-vendor-bundle');
+			this.emit('buildJsVendorBundle');
+		}
+		else if( false === key.shift && key.name === 'k' ) {
+			gutil.log('Hot key [k]: Build js-scripts (w/o bundles)');
+			this.emit('buildJsScripts');
+		}
+		else if( true === key.shift && key.name === 'k' ) {
+			gutil.log('Hot key [Shift+k]: Build js-scripts and all bundles');
+			this.emit('buildJs');
+		}
+		else if( key.shift && key.name === 'i' && key.sequence === 'I' ) {
+			gutil.log('Hot key [Shift+i]: Build sprites');
+			this.emit('buildSprites');
+		}
+		else if( false === key.shift && key.name === 'i' && key.sequence === 'i' ) {
+			gutil.log('Hot key [i]: Optimize images');
+			this.emit('optimizeImages');
+		}
+		else if( false === key.shift && key.name === 'f' ) {
+			gutil.log('Hot key [f]: Build csv-icons-font');
+			this.emit('buildCsvIconsFont');
+		}
+		else if( false === key.shift && key.name === 'g' ) {
+			gutil.log('Hot key [g]: Download goole-web-fonts');
+			this.emit('downloadGoogleWebFonts');
+		}
+		else if( key.shift && key.name === 'd' && key.sequence === 'D' ) {
+			gutil.log('Hot key [Shift+d]: Switch debug mode');
+			this.emit('switchDebugMode');
+		}
+		else if( key.shift && key.name === 'p' && key.sequence === 'P' ) {
+			gutil.log('Hot key [Shift+p]: Switch production mode');
+			this.emit('switchProductionMode');
+		}
+		else if( false === key.shift && key.name === 'r' ) {
+			gutil.log('Hot key [r]: Reload all (almost for components)');
+			this.emit('reloadAll');
+		}
+		else if( false === key.shift && key.name === 'b' ) {
+			gutil.log('Hot key [b]: Full build');
+			this.emit('build');
+		}
+		// TODO: Дописать запуск разных задач, которые отсутствуют в watcher-ах типа спрайтов, картинок и пр.
 	}
 
 	set debug(value) {
@@ -2404,11 +2399,12 @@ gulp.task('run-lamp-proxy', function() {
 
 gulp.task('default', ['help']);
 gulp.task('help', function () {
+	// noinspection JSCheckFunctionSignatures
 	return helpDoc(gulp, {
 		lineWidth: 120,
 		keysColumnWidth: 20,
 		logger: console
-	})
+	});
 });
 
 //////////////////////////
