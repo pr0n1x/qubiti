@@ -3,7 +3,7 @@
  * Сборщик верстки для шаблонов Битрикс
  *
  * известные баги:
- * 1. Если в компонентах нет ни одного файла style.less, то таск по сборке стилей будет падать
+ * 1. Если в компонентах нет ни одного файла style.(less|scss), то таск по сборке стилей будет падать
  * 2. При удалении файлов в интерактивном режиме, сервер скорее всего упадет.
  *    Просто заново запускаем и не забиваем себе голову.
  */
@@ -29,6 +29,7 @@ const
 	,iconfontCss = require('gulp-iconfont-css')
 	,imagemin = require('gulp-imagemin')
 	,less = require('gulp-less')
+	,sass = require('gulp-sass')
 	,nunjucksRender = require('gulp-nunjucks-render')
 	,nunjucksIncludeData = require('nunjucks-includeData')
 	,plumber = require('gulp-plumber')
@@ -162,53 +163,54 @@ let conf = {
 			,debug_assets: !!gutil.env['debug-bx-assets']
 		}
 	}
-	,less: {
+	,precss: {
+		lang: 'less', // can be "less" or "scss"
 		main: {
-			 base: 'less'
+			 base: '@lang'
 			,dest: 'css'
 			,bundle: '@base/_bundle.css'
 			,files: [
-				'@base/**/*.less'
+				'@base/**/*.@lang'
 
-				// Исключаем файлы с переменными less
-				,'!@base/**/var{,s,iable{,s}}{,.*,-*}{,/*,/**/*}.less'
+				// Исключаем файлы с переменными
+				,'!@base/**/var{,s,iable{,s}}{,.*,-*}{,/*,/**/*}.@lang'
 
 				// исключаем twitter bootstrap (но только подпапки))
 				// файлы именыемые bootstrap*.less не исключаем
 				// для возможности отдельной сборки
-				,'!@base/**/bootstrap{,.*,-*}{/*,/**/*}.less'
+				,'!@base/**/bootstrap{,.*,-*}{/*,/**/*}.@lang'
 
 				// Исключаем файлы и папки начинающие с подчеркивания.
 				//    Будем применять их для импортируемых файлов
 				//    без возможности автономной компиляции
-				,'!@base/**/_*{,/*,/**/*}.less'
+				,'!@base/**/_*{,/*,/**/*}.@lang'
 
-				// Исключаем библиотеки миксинов less
-				,'!@base/**/mixin{,s}{,.*,-*}{,/*,/**/*}.less'
-				,'!@base/**/lib{,s,rary{,s}}{,.*,-*}{,/*,/**/*}.less'
+				// Исключаем библиотеки миксинов
+				,'!@base/**/mixin{,s}{,.*,-*}{,/*,/**/*}.@lang'
+				,'!@base/**/lib{,s,rary{,s}}{,.*,-*}{,/*,/**/*}.@lang'
 			]
 			,watchImports: [
-				 // Это те файлы библиотек при которых пересобираем все несущие less-файлы
-				 // смотри исключения в conf.less.main.files
-				 '@base/var{,s,iable{,s}}{,.*,-*}{,/*,/**/*}.less'
-				,'@base/bootstrap{,.*,-*}{/*,/**/*}.less'
-				,'@base/_*{,/*,/**/*}.less'
-				,'@base/mixin{,s}{,.*,-*}{,/*,/**/*}.less'
-				,'@base/lib{,s,rary{,s}}{,.*,-*}{,/*,/**/*}.less'
+				 // Это те файлы библиотек при которых пересобираем все целевые файлы
+				 // смотри исключения в conf.precss.main.files
+				 '@base/var{,s,iable{,s}}{,.*,-*}{,/*,/**/*}.@lang'
+				,'@base/bootstrap{,.*,-*}{/*,/**/*}.@lang'
+				,'@base/_*{,/*,/**/*}.@lang'
+				,'@base/mixin{,s}{,.*,-*}{,/*,/**/*}.@lang'
+				,'@base/lib{,s,rary{,s}}{,.*,-*}{,/*,/**/*}.@lang'
 				// При изменении файлов входящих в src пересобираем файлы по одному
 				// Дабы браузер быстрее реагировал в режиме разработки
 			]
 		}
 		,components: {
-			 styleName: 'style.less'
+			 styleName: 'style.@lang'
 			,files: [
 				 'components/*/*/{*,.*}/@styleName'
 				,'components/*/*/{*,.*}/*/*/{*,.*}/@styleName'
 			]
 			,watch: [
-				 'components/*/*/**/*.less'
-				,'components/*/*/{*,.*}/**/*.less'
-				,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.less'
+				 'components/*/*/**/*.@lang'
+				,'components/*/*/{*,.*}/**/*.@lang'
+				,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.@lang'
 			]
 		}
 	}
@@ -263,8 +265,9 @@ let conf = {
 		]
 	}
 	,images: {
-		src: [ 'img.src/**/*.{jpeg,jpg,png,gif,ico}',
-				'!img.src/svgicons'
+		src: [
+			'img.src/**/*.{jpeg,jpg,png,gif,ico}',
+			'!img.src/svgicons'
 		]
 		,dest: 'images'
 	}
@@ -282,8 +285,8 @@ let conf = {
 		fontsList: 'fonts/gwf/google-web-fonts.list' // relative to the site template root
 		,fontsDir: '../fonts/gwf/' // fontsDir is relative to dest
 		,cssDir: 'lib/' // cssDir is relative to dest
-		,cssFilename: 'google-web-fonts.less'
-		,dest: './less/'
+		,cssFilename: 'google-web-fonts.css'
+		,dest: './@precss_base/'
 	}
 	,svgIconFont: {
 		src: 'img.src/svgicons/**/*.svg'
@@ -296,7 +299,6 @@ let conf = {
 		,dest: 'fonts/svgicons'
 	}
 };
-
 
 function generateGetterSetterProductionRelative() {
 	let currentValue = undefined;
@@ -325,7 +327,6 @@ function generateGetterSetterProductionNegative() {
 	};
 }
 
-
 Object.defineProperty(conf.dev_mode, 'minify_useless_css', generateGetterSetterProductionRelative() );
 Object.defineProperty(conf.dev_mode, 'minify_useless_js', generateGetterSetterProductionRelative() );
 Object.defineProperty(conf.assets, 'min_css', generateGetterSetterProductionRelative() );
@@ -333,7 +334,6 @@ Object.defineProperty(conf.assets, 'min_js', generateGetterSetterProductionRelat
 Object.defineProperty(conf.html.bx_component, 'use_minified_css', generateGetterSetterProductionRelative() );
 Object.defineProperty(conf.html.bx_component, 'use_minified_js', generateGetterSetterProductionRelative() );
 Object.defineProperty(conf.html, 'css_bundle_use_separate_files', generateGetterSetterProductionNegative() );
-
 
 let userConf = require(conf.curDir+'/gulpfile.config.js');
 if( typeof(userConf) == 'function' ) {
@@ -380,13 +380,13 @@ function replacePlaceHolder(object, replace, callcount) {
 	}
 }
 replacePlaceHolder(conf.html, {cond: /@base/, value: conf.html.base});
-replacePlaceHolder(conf.less.main, {cond: /@base/, value: conf.less.main.base});
-replacePlaceHolder(conf.less.components.files, {cond: /@styleName/, value: conf.less.components.styleName});
+replacePlaceHolder(conf.precss, {cond: /@lang/, value: conf.precss.lang});
+replacePlaceHolder(conf.precss.main, {cond: /@base/, value: conf.precss.main.base});
+replacePlaceHolder(conf.precss.components.files, {cond: /@styleName/, value: conf.precss.components.styleName});
+replacePlaceHolder(conf.googleWebFonts.dest, {cond: /@precss_base/, value: conf.precss.main.base});
 
-
-conf.debug = !!(gutil.env.debug ? true : conf.debug);
+conf.debug = !!(gutil.env.dbg ? true : conf.debug);
 conf.production = !!(gutil.env.production ? true : conf.production);
-
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
 	let isAllAssetsIsMinified = parseArgAsBool(gutil.env['assets-min']);
@@ -403,7 +403,6 @@ if( typeof(gutil.env['assets-min-js']) != 'undefined' ) {
 	conf.assets.min_js = parseArgAsBool(gutil.env['assets-min-js']);
 	conf.html.bx_component.use_minified_js = conf.assets.min_js;
 }
-
 
 if( typeof(gutil.env['dev-no-bsync-css-bundle-file']) != 'undefined' ) {
 	conf.dev_mode.no_bsync_css_bundle_file = parseArgAsBool(gutil.env['dev-no-bsync-css-bundle-file']);
@@ -448,7 +447,7 @@ function onTaskEndBrowserReload() {
 	browserSyncTimeout = setTimeout(browserSync.reload, 200);
 }
 
-function getRelPathByChanged(changedFile) {
+function getRelPathFromPipe(changedFile) {
 	if(changedFile.path.indexOf(conf.curDir) !== 0) {
 		throw 'Обращение к файлу лежащему за пределами собираемого шаблона!:'
 				+'\n    Путь: '+changedFile.path
@@ -486,7 +485,7 @@ function parsePath(path) {
 }
 
 let browserSyncReloadIsActive = true;
-function switchBroserSync(state) {
+function switchBrowserSync(state) {
 	if( state instanceof Boolean ) {
 		browserSyncReloadIsActive = state;
 	}
@@ -519,38 +518,46 @@ function browserSyncReload(done) {
 }
 
 /**
- * Сборка less-файлов
- * @task {less}
+ * Сборка less- или scss-файлов
+ * @task {precss}
  * @order {3}
  */
+function precss(...args) {
+	if (conf.precss.lang === 'less') {
+		return less(...args);
+	} else if (conf.precss.lang === 'scss') {
+		return sass(...args);
+	}
+	throw 'Incorrect css preprocessor language';
+}
 let cssBundleFiles = null;
-//gulp.task('less', ['less-main-bundle', 'less-components']);
+//gulp.task('precss', ['precss-main-bundle', 'precss-components']);
 // нет смысла запускать параллельно - нет прироста в скорости
 // а последовательный запуск понятнее отлаживать при случае
-gulp.task('less', function(done) {
-	runSequence('less-main', 'less-components', 'css-bundle', done);
+gulp.task('precss', function(done) {
+	runSequence('precss-main', 'precss-components', 'css-bundle', done);
 });
 
-gulp.task('less-main', function() {
-	return lessCommonPipe(
-		gulp.src(conf.less.main.files, {dot: true}),
-		conf.less.main.dest,
-		conf.debug ? 'main less:' : ''
+gulp.task('precss-main', function() {
+	return precssCommonPipe(
+		gulp.src(conf.precss.main.files, {dot: true}),
+		conf.precss.main.dest,
+		conf.debug ? 'main precss:' : ''
 	);
 });
-gulp.task('less-main-bundle', function(done) {
-	runSequence('less-main', 'css-bundle', done);
+gulp.task('precss-main-bundle', function(done) {
+	runSequence('precss-main', 'css-bundle', done);
 });
-gulp.task('less-components', function(doneTask) {
-	return lessCommonPipe(
-		gulp.src(conf.less.components.files, {dot: true, base: '.'}),
+gulp.task('precss-components', function(doneTask) {
+	return precssCommonPipe(
+		gulp.src(conf.precss.components.files, {dot: true, base: '.'}),
 		'.',
-		conf.debug ? 'component less:' : '',
+		conf.debug ? 'component precss:' : '',
 		doneTask
 	);
 });
 // noinspection JSUnusedLocalSymbols
-function lessCommonPipe(stream, dest, debugTitle, doneTask) {
+function precssCommonPipe(stream, dest, debugTitle, doneTask) {
 	let debugMode = true;
 	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
 		debugMode = false;
@@ -586,9 +593,9 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 
 	// noinspection JSUnusedLocalSymbols
 	return stream.pipe(plumber())
-		.pipe(rename({extname: '.less'}))
+		.pipe(rename({extname: '.'+conf.precss.lang}))
 		.pipe(sourcemaps.init())
-		.pipe(less())
+		.pipe(precss())
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
 		//.pipe(autoprefixer())
@@ -599,7 +606,7 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 				gutil.log(debugTitle+' compile: '+gutil.colors.blue(
 					parsedPath.dirname+Path.sep
 					+' { '+parsedPath.basename
-					+(('.css' === parsedPath.extname) ? '.less' : '')
+					+(('.css' === parsedPath.extname) ? '.'+conf.precss.lang : '')
 					+' -> '
 					+parsedPath.basename+parsedPath.extname+' } '
 				));
@@ -647,8 +654,8 @@ function lessCommonPipe(stream, dest, debugTitle, doneTask) {
 		}))
 	;
 }
-function lessWatcher(changedFile, target) {
-	let file = getRelPathByChanged(changedFile)
+function precssWatcher(changedFile, target) {
+	let file = getRelPathFromPipe(changedFile)
 		,fileName = Path.basename(file)
 		,stream = null
 		,dest = null
@@ -659,52 +666,52 @@ function lessWatcher(changedFile, target) {
 	}
 	switch(target) {
 		case 'main':
-			stream = gulp.src(file, {dot: true, base: conf.less.main.base});
+			stream = gulp.src(file, {dot: true, base: conf.precss.main.base});
 			stream.pipe(tap(function(file) {
 				let filePath = file.path.replace(/\\/g, '/');
-				let lessDir = conf.curDir+'/'+conf.less.main.base;
+				let precssDir = conf.curDir+'/'+conf.precss.main.base;
 				let relLessFilePath = null;
-				lessDir = lessDir
+				precssDir = precssDir
 					.replace(/\\/g, '/')
 					.replace(/\/\//g, '/');
-				if(filePath.indexOf(lessDir) !== 0) {
-					throw 'lesscss file out of configured less dir: "'+filePath+'"';
+				if(filePath.indexOf(precssDir) !== 0) {
+					throw 'precss file out of configured precss dir: "'+filePath+'"';
 				}
-				relLessFilePath = conf.less.main.dest+'/'+substr(filePath, lessDir.length+1);
+				relLessFilePath = conf.precss.main.dest+'/'+substr(filePath, precssDir.length+1);
 				relLessFilePath = relLessFilePath.trim()
 					.replace(/\/\//g, '/')
-					.replace(/\.less$/, '.css');
+					.replace(/\.(less|scss)$/, '.css');
 				if( null !== cssBundleFiles
 					&& cssBundleFiles.indexOf(relLessFilePath) !== -1
 				) {
 					runSequence('css-bundle');
 				}
 			}));
-			dest = conf.less.main.dest;
-			if(conf.debug) gutil.log('less watcher: '+gutil.colors.blue(file));
+			dest = conf.precss.main.dest;
+			if(conf.debug) gutil.log('precss watcher: '+gutil.colors.blue(file));
 			break;
 		case 'components':
 			dest = Path.dirname(file);
-			stream = gulp.src(dest+'/'+conf.less.components.styleName, {dot: true, base: dest});
+			stream = gulp.src(dest+'/'+conf.precss.components.styleName, {dot: true, base: dest});
 			if(conf.debug) gutil.log(
-				'less watcher: '
+				'precss watcher: '
 				+gutil.colors.blue(dest+'/'
-					+((fileName === conf.less.components.styleName)
-						? '{ '+fileName+' -> '+fileName.replace(/\.less$/, '.css')+' }'
+					+((fileName === conf.precss.components.styleName)
+						? '{ '+fileName+' -> '+fileName.replace(/\.(less|scss)$/, '.css')+' }'
 						: '{ '
 							+'changed: '+fileName+';  compiling: '
-							+conf.less.components.styleName +' -> '
-							+conf.less.components.styleName.replace(/\.less$/, '.css')
+							+conf.precss.components.styleName +' -> '
+							+conf.precss.components.styleName.replace(/\.(less|scss)$/, '.css')
 							+' }'
 					)
 				)
 			);
 			break;
 		default:
-			throw 'less-watcher: wrong watcher target';
+			throw 'precss-watcher: wrong watcher target';
 	}
 
-	return lessCommonPipe(stream, dest, conf.debug ? 'less watcher:' : '');
+	return precssCommonPipe(stream, dest, conf.debug ? 'precss watcher:' : '');
 }
 
 /**
@@ -726,7 +733,7 @@ gulp.task('css-bundle', function() {
 					.pipe(tap(function(file) {
 						file.contents = new Buffer(cssBundleFilesImport, 'utf-8');
 					}))
-					.pipe(gulp.dest(conf.less.main.dest))
+					.pipe(gulp.dest(conf.precss.main.dest))
 					// Уведомляем браузер если изменился bundle-import.css
 					.pipe(browserSyncStream())
 				);
@@ -739,7 +746,7 @@ gulp.task('css-bundle', function() {
 					.pipe(sourcemaps.init({loadMaps: true}))
 					.pipe(tap(function(file) {
 						// исправляем в стилях url(...)
-						let cssFile = getRelPathByChanged(file);
+						let cssFile = getRelPathFromPipe(file);
 						cssFile = cssFile
 							.replace(/\\/g, '/')
 							.replace(/\/\/\//g, '/')
@@ -747,7 +754,7 @@ gulp.task('css-bundle', function() {
 							.replace(/^\//, '')
 							.replace(/\/$/, '');
 						let cssSrcDir = Path.dirname(cssFile).trim();
-						let dest = conf.less.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
+						let dest = conf.precss.main.dest.trim().replace(/^\//, '').replace(/\/$/, '');
 						dest = dest
 							.replace(/\\/g, '/')
 							.replace(/\/\/\//g, '/')
@@ -785,9 +792,9 @@ gulp.task('css-bundle', function() {
 						)
 					)
 					.pipe(sourcemaps.write('./'))
-					.pipe(gulp.dest(conf.less.main.dest))
+					.pipe(gulp.dest(conf.precss.main.dest))
 					.pipe(tap(function(file) {
-						let relFilePath = getRelPathByChanged(file);
+						let relFilePath = getRelPathFromPipe(file);
 						if(Path.extname(relFilePath) === '.css') {
 							if( ! conf.assets.min_css && ! conf.dev_mode.minify_useless_css ) {
 								gutil.log(
@@ -843,16 +850,16 @@ gulp.task('css-bundle-parse-imports-list', function() {
 function parseCssBundleImportList(afterParseCallback) {
 	cssBundleFiles = [];
 	let cssBundleFilesImport = '';
-	return gulp.src(conf.less.main.bundle)
+	return gulp.src(conf.precss.main.bundle)
 		.pipe(conf.debug ? debug({title: 'css bundle:', showCount: false}) : gutil.noop())
 		.pipe(tap(function(file) {
 			let bundleName = Path.basename(file.path)
 				.replace(/^_/, '')
-				.replace(/\.(less|css)$/i, '');
-			let relBundleFilePath = getRelPathByChanged(file);
+				.replace(/\.(less|scss|css)$/i, '');
+			let relBundleFilePath = getRelPathFromPipe(file);
 
-			let regim = /\s*@import\s*['"]([a-zA-Z0-9_\-\/.]+)(?:\.css|\.less)['"];\s*/gim;
-			let rei = /\s*@import\s*['"]([a-zA-Z0-9_\-\/.]+)(?:\.css|\.less)['"];\s*/i;
+			let regim = /\s*@import\s*['"]([a-zA-Z0-9_\-\/.]+)(?:\.css|\.less|\.scss)['"];\s*/gim;
+			let rei = /\s*@import\s*['"]([a-zA-Z0-9_\-\/.]+)(?:\.css|\.less|\.scss)['"];\s*/i;
 			let matchedStringList = file.contents
 				.toString()
 				.replace(/^\/\/(.*)/gim, '') // remove line comments
@@ -867,7 +874,7 @@ function parseCssBundleImportList(afterParseCallback) {
 					let match = matchedString.match(rei);
 					if( match ) {
 						let importedCssFile = match[1]+'.css';
-						cssBundleFiles.push(conf.less.main.dest+'/'+importedCssFile);
+						cssBundleFiles.push(conf.precss.main.dest+'/'+importedCssFile);
 						cssBundleFilesImport +='@import "'+importedCssFile+'";\n';
 					}
 				}
@@ -918,7 +925,7 @@ gulp.task('--html-nunjucks', function() {
 		.pipe(conf.debug ? debug({title: 'compile page: '}) : gutil.noop())
 		//.pipe(twig())
 		.pipe(tap(function(file) {
-			htmlTaskCurrentFile = getRelPathByChanged(file);
+			htmlTaskCurrentFile = getRelPathFromPipe(file);
 		}))
 		.pipe(data(function(file) {
 			function fixSlashes(strPath) {
@@ -927,7 +934,7 @@ gulp.task('--html-nunjucks', function() {
 					.replace('///', '/')
 					.replace('//', '/')
 			}
-			const currentFile = getRelPathByChanged(file);
+			const currentFile = getRelPathFromPipe(file);
 			const currentDir = fixSlashes(Path.dirname(currentFile));
 			const layoutDocumentRoot = Path.relative('/'+currentDir, '/');
 			const layoutSiteTemplatePath = layoutDocumentRoot;
@@ -1204,7 +1211,7 @@ gulp.task('js-bundle', function() {
 			//.pipe(conf.debug ? debug({title: 'js bundle src:'}) : gutil.noop())
 			.pipe(plumber())
 			.pipe(tap(function(file) {
-				let  bundleSrcFile = getRelPathByChanged(file)
+				let  bundleSrcFile = getRelPathFromPipe(file)
 					,bundleName = Path.basename(bundleSrcFile)
 						.replace(/^_/, '')
 						.replace(/\.js$/, '')
@@ -1441,7 +1448,7 @@ function jsScriptStreamMinifyHandler(stream, dest, debugTitle) {
 	;
 }
 function jsScriptsWatcher(changedFile) {
-	let file = getRelPathByChanged(changedFile)
+	let file = getRelPathFromPipe(changedFile)
 		,dest = Path.dirname(file)
 		,fileName = Path.basename(file)
 		,fileStat = fs.lstatSync(changedFile.path)
@@ -1605,7 +1612,7 @@ gulp.task('sprites', function() {
 			//.pipe((!conf.sprites.minify)?gutil.noop():imagemin()) - падает с ошибкой
 			.pipe((!conf.sprites.minify)?gutil.noop():tap(function(file) {
 				// берем уже сохраненный файл в новый стрим
-				let relFilePath = getRelPathByChanged(file)
+				let relFilePath = getRelPathFromPipe(file)
 					,destDir = Path.dirname(relFilePath);
 				return gulp.src(relFilePath, {dot: true})
 					.pipe(imagemin())
@@ -1680,9 +1687,9 @@ gulp.task('bower', function() {
 gulp.task('build', function(done) {
 	// Все последовательно, параллельность тут все равно не дает скорости
 	runSequence(
-		'less-main',
+		'precss-main',
 		'css-bundle',
-		'less-components',
+		'precss-components',
 		'js-bundle',
 		'js-scripts',
 		'js-vendor-bundle',
@@ -1692,8 +1699,8 @@ gulp.task('build', function(done) {
 });
 
 
-function parseLessDependencies(src, treePath, deepDependenciesIndex) {
-	// let _debug = function() { console.log('', ...arguments); };
+function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
+	//let _debug = function() { console.log('', ...arguments); };
 	let _debug = function() {};
 	if( typeof(treePath) != 'object' || ! Array.isArray(treePath) ) {
 		treePath = [];
@@ -1716,12 +1723,12 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 		_debug('| '.repeat(depth-1)+'@ RUN PROMISE'+(dependecyOf?' for '+dependecyOf:''));
 		if( depth >= 10 ) {
 			_debug('| '.repeat(depth)+'rejected by depth limit');
-			reject('less imports depth limit succeeded');
+			reject(' imports depth limit succeeded');
 		}
 
 		gulp.src(src, {dot: true, base: '.'})
 		.pipe(tap(function(file) {
-			let lessCode = file.contents.toString();
+			let precssCode = file.contents.toString();
 			_debug('| '.repeat(depth)+'- file', file.path);
 
 			let dir = Path.dirname(file.path);
@@ -1734,7 +1741,7 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 
 			let regImport_gim = /@import[\s]*((?:\([a-zA-Z]+\))?)[\s]*['"](.*?)['"][\s]*;/gim;
 			let regImport     = /@import[\s]*((?:\([a-zA-Z]+\))?)[\s]*['"](.*?)['"][\s]*;/i;
-			let matches = lessCode
+			let matches = precssCode
 				.replace(/^\/\/(.*)/gim, '') // remove line comments
 				.replace(/\/\*[\s\S]*?\*\/\n?/gim, '') // remove multi line comments
 				.match(regImport_gim);
@@ -1742,12 +1749,21 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 				matches.forEach(function(matchedImport) {
 					let matchParts = matchedImport.match(regImport);
 					let importFilePath = matchParts[2].trim();
-					if( ! /(\.less|\.css)$/.test(importFilePath) ) {
-						importFilePath += '.less';
+					if( ! /(\.less|\.scss|\.css)$/.test(importFilePath) ) {
+						importFilePath += '.'+conf.precss.lang;
 					}
-					let dep = Path.resolve(dir, importFilePath);
+					let dep = /^\./.test(importFilePath)
+						? Path.resolve(dir, importFilePath)
+						: Path.resolve(conf.curDir, importFilePath);
 					_debug('| '.repeat(depth+1)+'- import:', dep);
 					dependencies[file.path].push(dep);
+					if (conf.precss.lang === 'scss') {
+						let fileName = Path.basename(dep);
+						let dirName = Path.dirname(dep);
+						if ( ! /^_/.test(fileName) ) {
+							dependencies[file.path].push(dirName+'/_'+fileName);
+						}
+					}
 				});
 			}
 		}))
@@ -1776,7 +1792,7 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 					});
 					try {
 						//let recursionResult =
-						await parseLessDependencies(
+						await parsePreCssDependencies(
 							dependencies[filePath],//.slice(),
 							deeperTreePath,
 							deepDependenciesIndex
@@ -1797,13 +1813,13 @@ function parseLessDependencies(src, treePath, deepDependenciesIndex) {
 	});
 }
 
-gulp.task('test-less-imports-tree', function() {
-	// let src = conf.less.main.watchImports;
-	// let src = conf.less.main.files;
-	// let src = conf.less.components.files;
+gulp.task('test-precss-imports-tree', function() {
+	// let src = conf.precss.main.watchImports;
+	// let src = conf.precss.main.files;
+	// let src = conf.precss.components.files;
 	// let src = [];
-	let src = conf.less.components.files.concat(conf.less.main.files);
-	return parseLessDependencies(src)
+	let src = conf.precss.components.files.concat(conf.precss.main.files);
+	return parsePreCssDependencies(src)
 	.then(function(res) {
 		console.log(JSON.stringify(res, null, 4));
 	})
@@ -1820,7 +1836,7 @@ gulp.task('test-less-imports-tree', function() {
  */
 let watchers = [];
 const WATCH_OPTIONS = {cwd: './'};
-let lessDeepDependenciesIndex = null;
+let precssDeepDependenciesIndex = null;
 gulp.task('watch', function(done) {
 	isInteractiveMode = true;
 	if( watchers.length > 0 ) {
@@ -1836,32 +1852,32 @@ gulp.task('add-watchers', async function () {
 	// html
 	watchers.push(gulp.watch(conf.html.watch, WATCH_OPTIONS, ['html']));
 
-	// less-css
-	//watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, ['less-main-bundle']));
-	let allLessSrc = conf.less.components.files.concat(conf.less.main.files);
-	watchers.push(gulp.watch(conf.less.main.watchImports, WATCH_OPTIONS, async function(changed) {
-		if(null === lessDeepDependenciesIndex) {
-			lessDeepDependenciesIndex = (await parseLessDependencies(allLessSrc)).deepDependenciesIndex;
-			//onsole.log('less dep tree parsed');
+	// precss
+	//watchers.push(gulp.watch(conf.precss.main.watchImports, WATCH_OPTIONS, ['precss-main-bundle']));
+	let allLessSrc = conf.precss.components.files.concat(conf.precss.main.files);
+	watchers.push(gulp.watch(conf.precss.main.watchImports, WATCH_OPTIONS, async function(changed) {
+		if(null === precssDeepDependenciesIndex) {
+			precssDeepDependenciesIndex = (await parsePreCssDependencies(allLessSrc)).deepDependenciesIndex;
+			//onsole.log('precss dep tree parsed');
 		}
 		// else {
-		// 	console.log('less dep tree is ready');
+		// 	console.log('precss dep tree is ready');
 		// }
-		if( typeof(lessDeepDependenciesIndex[changed.path]) == 'object'
-			&& Array.isArray(lessDeepDependenciesIndex[changed.path])
-			&& lessDeepDependenciesIndex[changed.path].length > 0
+		if( typeof(precssDeepDependenciesIndex[changed.path]) == 'object'
+			&& Array.isArray(precssDeepDependenciesIndex[changed.path])
+			&& precssDeepDependenciesIndex[changed.path].length > 0
 		) {
 			let matchedComponentFiles = [];
 			let matchedMainFiles = [];
-			lessDeepDependenciesIndex[changed.path].forEach(function(dependentFile) {
-				let dependentFileRelPath = getRelPathByChanged({path: dependentFile});
+			precssDeepDependenciesIndex[changed.path].forEach(function(dependentFile) {
+				let dependentFileRelPath = getRelPathFromPipe({path: dependentFile});
 				let matchedMain = false;
 				let filteredMain = false;
 				let matchedComponent = false;
 				let filteredComponent = false;
 				// noinspection DuplicatedCode
-				for(let mainFilePatternKey=0; mainFilePatternKey < conf.less.main.files.length; mainFilePatternKey++) {
-					let mainFilePattern = conf.less.main.files[mainFilePatternKey];
+				for(let mainFilePatternKey=0; mainFilePatternKey < conf.precss.main.files.length; mainFilePatternKey++) {
+					let mainFilePattern = conf.precss.main.files[mainFilePatternKey];
 					if( minimatch(dependentFileRelPath, mainFilePattern, {flipNegate: true}) ) {
 						if(mainFilePattern[0] === '!') {
 							filteredMain = true;
@@ -1873,8 +1889,8 @@ gulp.task('add-watchers', async function () {
 					}
 				}
 				// noinspection DuplicatedCode
-				for(let patternKey=0; patternKey < conf.less.components.files.length; patternKey++) {
-					let componentPattern = conf.less.components.files[patternKey];
+				for(let patternKey=0; patternKey < conf.precss.components.files.length; patternKey++) {
+					let componentPattern = conf.precss.components.files[patternKey];
 					if( minimatch(dependentFileRelPath, componentPattern, {flipNegate: true}) ) {
 						if(componentPattern[0] === '!') {
 							filteredComponent = true;
@@ -1893,21 +1909,21 @@ gulp.task('add-watchers', async function () {
 				}
 			});
 			matchedMainFiles.forEach(function(fileFullPath) {
-				lessWatcher({path: fileFullPath}, 'main');
+				precssWatcher({path: fileFullPath}, 'main');
 			});
 			matchedComponentFiles.forEach(function(fileFullPath) {
-				lessWatcher({path: fileFullPath}, 'components');
+				precssWatcher({path: fileFullPath}, 'components');
 			});
 		}
 	}));
-	watchers.push(gulp.watch(conf.less.main.bundle, WATCH_OPTIONS, ['css-bundle']));
-	watchers.push(gulp.watch(conf.less.main.files, WATCH_OPTIONS, function(changed) {
-		lessDeepDependenciesIndex = null;
-		return lessWatcher(changed, 'main');
+	watchers.push(gulp.watch(conf.precss.main.bundle, WATCH_OPTIONS, ['css-bundle']));
+	watchers.push(gulp.watch(conf.precss.main.files, WATCH_OPTIONS, function(changed) {
+		precssDeepDependenciesIndex = null;
+		return precssWatcher(changed, 'main');
 	}));
-	watchers.push(gulp.watch(conf.less.components.watch, WATCH_OPTIONS, function(changed) {
-		lessDeepDependenciesIndex = null;
-		return lessWatcher(changed, 'components');
+	watchers.push(gulp.watch(conf.precss.components.watch, WATCH_OPTIONS, function(changed) {
+		precssDeepDependenciesIndex = null;
+		return precssWatcher(changed, 'components');
 	}));
 
 	// js
@@ -1921,7 +1937,7 @@ gulp.task('add-watchers', async function () {
 	//done(); нет смысла если используем async-функцию
 });
 gulp.task('remove-watchers', async function() {
-	lessDeepDependenciesIndex = null;
+	precssDeepDependenciesIndex = null;
 	// noinspection JSUnusedLocalSymbols
 	watchers.forEach(function(watcher, index) {
 		watcher.end();
@@ -1932,18 +1948,18 @@ gulp.task('remove-watchers', async function() {
 
 gulp.task('--begin-interactive-mode-task-action', function() {
 	isInteractiveMode = false;
-	switchBroserSync(false);
+	switchBrowserSync(false);
 });
 
 gulp.task('--finish-interactive-mode-task-action', function(done) {
 	isInteractiveMode = true;
-	switchBroserSync(true);
+	switchBrowserSync(true);
 	browserSyncReload(done);
 });
 
 /**
  * Слежение за горячими клавишами.
- * Подсказка по горячим клавишам: $ gulp help-hk | less
+ * Подсказка по горячим клавишам: $ gulp help-hk | precss
  * @task {watch-hotkeys}
  * @order {16}
  */
@@ -1978,35 +1994,35 @@ gulp.task('watch-hotkeys', function() {
 	keyListener.on('buildAllStyles', function() {
 		runSequence(
 			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'less-main', 'less-components',
+			'precss-main', 'precss-components',
 			'--finish-interactive-mode-task-action', 'add-watchers'
 		);
 	});
 	keyListener.on('buildMainStyles', function() {
 		runSequence(
 			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'less-main',
+			'precss-main',
 			'--finish-interactive-mode-task-action', 'add-watchers'
 		);
 	});
 	keyListener.on('buildMainStylesAndBundle', function() {
 		runSequence(
 			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'less-main-bundle',
+			'precss-main-bundle',
 			'--finish-interactive-mode-task-action', 'add-watchers'
 		);
 	});
 	keyListener.on('buildAllStylesAndBundle', function() {
 		runSequence(
 			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'less',
+			'precss',
 			'--finish-interactive-mode-task-action', 'add-watchers'
 		);
 	});
 	keyListener.on('buildComponentStyles', function() {
 		runSequence(
 			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'less-components',
+			'precss-components',
 			'--finish-interactive-mode-task-action', 'add-watchers'
 		);
 	});
@@ -2085,7 +2101,7 @@ gulp.task('watch-hotkeys', function() {
 	keyListener.on('reloadAll', function() {
 		runSequence(
 			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'less-components', 'js-scripts', 'html', 'add-watchers',
+			'precss-components', 'js-scripts', 'html', 'add-watchers',
 			'--finish-interactive-mode-task-action', 'add-watchers'
 		);
 	});
@@ -2124,7 +2140,7 @@ class KeyPressEmitter extends EventEmitter {
 	start() {
 		//process.stdin.setEncoding('utf8');
 		process.stdin.setRawMode(true);
-		process.stdin.on('data', this.onData);
+		process.stdin.on('data', this.onData.bind(this));
 	}
 
 	onData(data) {
@@ -2284,7 +2300,7 @@ function showHelpHotKeys(done) {
                 в результате обращения watcher-ов к уже отсутствующим на ФС элементам.
                 Для повторного запуска нажимите "w".
 
-        "r" - Более масштабная перегрузка watcher-ов включающая пересборку html, less и js
+        "r" - Более масштабная перегрузка watcher-ов включающая пересборку html, precss и js
               Это необходимо например потому, что тот же html зависит от состава файлов css-bundle-а.
               При создании новых компонентов и шаблонов необходимо использовать именно этот вариант.
 
@@ -2297,17 +2313,17 @@ function showHelpHotKeys(done) {
         "h" - Сборка njk-файлов в html. Аналог $ gulp html
 
         "s" - Сборка основных стилей.
-              Аналог $ gulp less-main
+              Аналог $ gulp precss-main
 "Shift + s" - Сборка основных стилей и их bundle-а
-              Аналог $ gulp less-main-bundle
+              Аналог $ gulp precss-main-bundle
 
         "a" - Сборка всех стилей (но без сборки bundle-а).
-              Аналог $ gulp less-main && gulp less-components
+              Аналог $ gulp precss-main && gulp precss-components
 "Shift + a" - Полный сборка всех стилей: компоненты, основные стили + bundle.
-              Аналог $ gulp less
+              Аналог $ gulp precss
 
-        "l" - Соберет только less-файлы компонентов (component/ns/name/tpl/style.less).
-              Аналог $ gulp less-components
+        "l" - Соберет только precss-файлы компонентов (component/ns/name/tpl/style.(less|scss)).
+              Аналог $ gulp precss-components
 
 "Shift + l" - Сборка только css-bundle-а.
               Аналог $ gulp css-bundle
@@ -2338,8 +2354,8 @@ function showHelpHotKeys(done) {
 
         "g" - Загрузка шрифтов google-web-fonts (fonts.google.com)
               Аналог $ gulp google-web-fonts
-              Загрузка повлечет за собой создание less-файлов, на которые
-              настроен watcher, соответственно будут пересобраны все less-файлы $ gulp less
+              Загрузка повлечет за собой создание precss-файлов, на которые
+              настроен watcher, соответственно будут пересобраны все precss-файлы $ gulp precss
 
         "b" - Полная сборка проекта. Аналог $ gulp build
 
