@@ -101,7 +101,7 @@ let conf = {
 		// много времени на сборке в режиме разработки.
 		// Ниже эти параметры определены как ф-ия (getter) от ключа .production
 		// .dev_mode.minify_useless_css = produiction ? true : false
-		// Если эти параметры определить в файле "gulpfile.config.js",
+		// Если эти параметры определить в файле "qubiti.config.js",
 		// то они всегда будут иметь значение указанное там
 		// вне зависимости от значения ключа .production.
 		minify_useless_css: false,
@@ -335,7 +335,7 @@ Object.defineProperty(conf.html.bx_component, 'use_minified_css', generateGetter
 Object.defineProperty(conf.html.bx_component, 'use_minified_js', generateGetterSetterProductionRelative() );
 Object.defineProperty(conf.html, 'css_bundle_use_separate_files', generateGetterSetterProductionNegative() );
 
-let userConf = require(conf.curDir+'/gulpfile.config.js');
+let userConf = require(conf.curDir+'/qubiti.config.js');
 if( typeof(userConf) == 'function' ) {
 	extend(true, conf, userConf(conf));
 }
