@@ -731,7 +731,7 @@ gulp.task('css-bundle', function() {
 				stream.add(gulp.src(relBundleFilePath, {dot: true})
 					.pipe(rename(bundleName+'-import.css'))
 					.pipe(tap(function(file) {
-						file.contents = new Buffer(cssBundleFilesImport, 'utf-8');
+						file.contents = Buffer.from(cssBundleFilesImport, 'utf-8');
 					}))
 					.pipe(gulp.dest(conf.precss.main.dest))
 					// Уведомляем браузер если изменился bundle-import.css
@@ -764,7 +764,7 @@ gulp.task('css-bundle', function() {
 						let stepsToRootFromDest = Path.relative('/'+dest, '/');
 						let urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
 
-						file.contents = new Buffer(
+						file.contents = Buffer.from(
 							'\n/* '+cssFile+' */\n'+
 							file.contents
 								.toString()
@@ -984,7 +984,7 @@ gulp.task('--html-nunjucks', function() {
 					jsOut += '<script type="text/javascript" src="'+href+'"></script>\n';
 				}
 			}
-			file.contents = new Buffer(file.contents.toString()
+			file.contents = Buffer.from(file.contents.toString()
 				.replace(/<!--[\s]*@bx_component_assets_css[\s]*-->\n?/, cssOut)
 				.replace(/<!--[\s]*@bx_component_assets_js[\s]*-->\n?/, jsOut)
 			);
@@ -1178,7 +1178,7 @@ gulp.task('js', function(done) {
  * @param bundleDir
  * @returns {Function}
  */
-function tapExternalizeBroserifySourceMap(bundleDir) {
+function tapExternalizeBrowserifySourceMap(bundleDir) {
 	return function(file) {
 		let mapFileName = Path.basename(file.path)+'.map';
 		let mapFilePath = conf.curDir+'/'+bundleDir+'/'+mapFileName;
@@ -1191,10 +1191,9 @@ function tapExternalizeBroserifySourceMap(bundleDir) {
 				.replace(new RegExp(''+conf.curDir+'/', 'gim'), '../')
 				.replace(new RegExp('"js/([a-zA-Z0-9\\-_.]+)/', 'gim'), '"../js/$1/')
 		);
-		file.contents = new Buffer(
-			convertSourceMap.removeComments(src).trim()
-			+ '\n//# sourceMappingURL=' + Path.basename(mapFilePath)
-		);
+		let content = convertSourceMap.removeComments(src).trim()
+			+ '\n//# sourceMappingURL=' + Path.basename(mapFilePath);
+		file.contents = Buffer.from(content, 'utf8');
 	};
 }
 /**
@@ -1245,7 +1244,7 @@ gulp.task('js-bundle', function() {
 						.pipe(plumber())
 						.pipe(gbuffer())
 						.on('error', swallowError)
-						.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
+						.pipe(tap(tapExternalizeBrowserifySourceMap(bundleDir)))
 						.pipe(tap(function(file) {
 							file.bundleName = bundleName;
 							file.bundleFile = bundleFile;
@@ -1363,7 +1362,7 @@ gulp.task('js-vendor-bundle', function() {
 	// 	})
 	// }
 
-	function handleBrowserifyBundler(err) {
+	function handleBrowserifyBundle(err) {
 		if(err) {
 			gutil.log(
 				gutil.colors.red('Browserify bundling error: <<<')
@@ -1372,14 +1371,32 @@ gulp.task('js-vendor-bundle', function() {
 			);
 		}
 	}
-	let bundleStream = bfy.bundle(handleBrowserifyBundler)
+
+	let bundleStream = bfy.bundle(handleBrowserifyBundle)
 		.pipe(vsource(bundleFile))
 		.pipe(vbuffer())
 		.pipe(rename(bundleFile))
 		.pipe(plumber())
 		.on('error', swallowError)
-		.pipe(tap(tapExternalizeBroserifySourceMap(bundleDir)))
+		.pipe(tap(tapExternalizeBrowserifySourceMap(bundleDir)))
 		.pipe(gulp.dest(bundleDir));
+
+	// С помощью этого метода можно будет сделать
+	// карту записимостей файлов и сделать эффективный watcher
+	// Это позволит избюаиться от таска js-vendor-bundle,
+	// который как раз и появился в связи со слишком долгой сборкой js-bundle-а
+	// let through = require('through2');
+	// bfy.pipeline.get('deps').push(through.obj(
+	// 	function(row, enc, next) {
+	// 		console.log('deps', {
+	// 			id: row.id,
+	// 			file: row.file,
+	// 			deps: row.deps
+	// 		});
+	// 		next();
+	// 	},
+	// 	function() { console.log('end'); }
+	// ));
 
 	// return bundleStream;
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
@@ -1603,7 +1620,7 @@ gulp.task('sprites', function() {
 					fileContent = fileContent.replace(/@spritesheet/gmi, '@spritesheet-'+spriteBatch.name);
 					// remove spaces
 					fileContent = fileContent.replace(/\n\n/gmi, '');
-					file.contents = new Buffer(fileContent, 'utf-8');
+					file.contents = Buffer.from(fileContent, 'utf-8');
 					spriteBatchCounter++;
 				}
 			}))
