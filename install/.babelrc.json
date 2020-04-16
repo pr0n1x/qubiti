@@ -1,0 +1,12 @@
+{
+  "plugins": [
+    ["@babel/plugin-transform-runtime"],
+    ["@babel/plugin-transform-modules-commonjs"],
+    ["module-resolver", {
+      "root": ["./js/src/", "js/vendor/", "./node_modules/"],
+      "alias": {
+        "test": "./test"
+      }
+    }]
+  ]
+}

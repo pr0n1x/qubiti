@@ -16,11 +16,11 @@ const
 	,fs = require('fs')
 	,extend = require('extend')
 	,Path = require('path')
+	,EventEmitter = require('events').EventEmitter
 	,decodeKeypress = require('decode-keypress')
 	,concat = require('gulp-concat')
 	,cssnano = require('gulp-cssnano')
 	,convertSourceMap = require('convert-source-map')
-	,data = require('gulp-data')
 	,debug = require('gulp-debug')
 	,filter = require('gulp-filter')
 	,googleWebFonts = require('gulp-google-webfonts')
@@ -46,39 +46,13 @@ const
 	,gbuffer = require('gulp-buffer')
 	,browserify = require('browserify')
 	,browserifyResolveShimify = require('resolve-shimify')
-	// ,lodashAssign = require('lodash.assign')
 	,minimatch = require('minimatch')
+	,through2 = require('through2')
 
-	// вся эта хрень вполне ставится в самом шаблоне
-	// и нет никакой надобности захламлять qubity этими зависимостями
-	// но для примера использования пускай тут лежит этот коммент
-	// ,gbrowserify = require('gulp-browserify')
-	// ,babelify = require('babelify')
-	// ,vueify = require('vueify')
-	// ,gvueify = require('gulp-vueify')
-	// ,babelPresetEs2015 = require('babel-preset-es2015')
-	// ,babelPresetEnv = require('babel-preset-env')
-	// ,babelPresetStage2 = require('babel-preset-stage-2')
-	// ,babelPluginTransformRuntime = require('babel-plugin-transform-runtime')
-	// ,babelPluginTransformExportExtensions = require('babel-plugin-transform-export-extensions')
-	// ,babelPluginSyntaxExportExtensions = require('babel-plugin-syntax-export-extensions')
+	,utils = require('./src/utils')
+	,NunjucksBitrix = require('./src/NunjucksBitrix')
 ;
-// let babelConfig = {
-// 	presets: [
-// 		babelPresetEnv,
-// 		babelPresetStage2
-// 	],
-// 	plugins: [
-// 		babelPluginTransformRuntime,
-// 		babelPluginTransformExportExtensions,
-// 		babelPluginSyntaxExportExtensions
-// 	]
-// };
-// vueify.compiler.applyConfig({ babel: babelConfig });
 
-const EventEmitter = require('events').EventEmitter;
-
-//noinspection JSCheckFunctionSignatures
 const browserSyncEmitter = new EventEmitter();
 let browserSync = require('browser-sync').create(null, browserSyncEmitter);
 let isInteractiveMode = false;
@@ -160,7 +134,8 @@ let conf = {
 		,bx_component: {
 			 use_minified_js: false
 			,use_minified_css: false
-			,debug_assets: !!gutil.env['debug-bx-assets']
+			,debug_show_component_files: !!gutil.env['dbg-show-bx-component-files']
+			,debug_assets: !!gutil.env['dbg-bx-assets']
 		}
 	}
 	,precss: {
@@ -300,40 +275,15 @@ let conf = {
 	}
 };
 
-function generateGetterSetterProductionRelative() {
-	let currentValue = undefined;
-	return {
-		get: function() {
-			return (typeof(currentValue) == 'undefined')
-				? conf.production
-				: currentValue;
-		},
-		set: function(newValue) {
-			currentValue = newValue;
-		}
-	};
-}
-function generateGetterSetterProductionNegative() {
-	let currentValue = undefined;
-	return {
-		get: function() {
-			return (typeof(currentValue) == 'undefined')
-				? ( ! conf.production )
-				: currentValue;
-		},
-		set: function(newValue) {
-			currentValue = newValue;
-		}
-	};
-}
 
-Object.defineProperty(conf.dev_mode, 'minify_useless_css', generateGetterSetterProductionRelative() );
-Object.defineProperty(conf.dev_mode, 'minify_useless_js', generateGetterSetterProductionRelative() );
-Object.defineProperty(conf.assets, 'min_css', generateGetterSetterProductionRelative() );
-Object.defineProperty(conf.assets, 'min_js', generateGetterSetterProductionRelative() );
-Object.defineProperty(conf.html.bx_component, 'use_minified_css', generateGetterSetterProductionRelative() );
-Object.defineProperty(conf.html.bx_component, 'use_minified_js', generateGetterSetterProductionRelative() );
-Object.defineProperty(conf.html, 'css_bundle_use_separate_files', generateGetterSetterProductionNegative() );
+
+Object.defineProperty(conf.dev_mode, 'minify_useless_css', utils.propertyDefinition(conf.production) );
+Object.defineProperty(conf.dev_mode, 'minify_useless_js', utils.propertyDefinition(conf.production) );
+Object.defineProperty(conf.assets, 'min_css', utils.propertyDefinition(conf.production) );
+Object.defineProperty(conf.assets, 'min_js', utils.propertyDefinition(conf.production) );
+Object.defineProperty(conf.html.bx_component, 'use_minified_css', utils.propertyDefinition(conf.production) );
+Object.defineProperty(conf.html.bx_component, 'use_minified_js', utils.propertyDefinition(conf.production) );
+Object.defineProperty(conf.html, 'css_bundle_use_separate_files', utils.propertyDefinition(!conf.production) );
 
 let userConf = require(conf.curDir+'/qubiti.config.js');
 if( typeof(userConf) == 'function' ) {
@@ -344,92 +294,44 @@ else {
 }
 
 
-function replacePlaceHolder(object, replace, callcount) {
-	if (typeof(callcount) == 'undefined') callcount = 1;
-	if (parseInt(callcount) <= 1) callcount = 1;
-	if (typeof(object) != 'object') return;
-	// let offset = '  ';
-	// for(let i=0; i<callcount; i++) {
-	// 	offset += offset;
-	// }
-	let itemWork = function(key) {
-		switch(typeof(object[key])) {
-			case 'object':
-				//onsole.log(offset+key+':object:'+callcount);
-				replacePlaceHolder(object[key], replace, (callcount+1));
-				break;
-			case 'string':
-				//onsole.log(offset+key+':string:'+callcount);
-				object[key] = object[key].replace(replace.cond, replace.value);
-				break;
-			default:
-				break;
-		}
-	};
-	if(Array.isArray(object)) {
-		for(let key=0; key < object.length; key++) {
-			itemWork(key);
-		}
-	}
-	else {
-		for(let key in object) {
-			if(object.hasOwnProperty(key)) {
-				itemWork(key);
-			}
-		}
-	}
-}
-replacePlaceHolder(conf.html, {cond: /@base/, value: conf.html.base});
-replacePlaceHolder(conf.precss, {cond: /@lang/, value: conf.precss.lang});
-replacePlaceHolder(conf.precss.main, {cond: /@base/, value: conf.precss.main.base});
-replacePlaceHolder(conf.precss.components.files, {cond: /@styleName/, value: conf.precss.components.styleName});
-replacePlaceHolder(conf.googleWebFonts.dest, {cond: /@precss_base/, value: conf.precss.main.base});
+utils.dereferencePlaceHolder(conf.html, /@base/, conf.html.base);
+utils.dereferencePlaceHolder(conf.precss, /@lang/, conf.precss.lang);
+utils.dereferencePlaceHolder(conf.precss.main, /@base/, conf.precss.main.base);
+utils.dereferencePlaceHolder(conf.precss.components.files, /@styleName/, conf.precss.components.styleName);
+utils.dereferencePlaceHolder(conf.googleWebFonts.dest, /@precss_base/, conf.precss.main.base);
 
+// noinspection JSUnresolvedVariable
 conf.debug = !!(gutil.env.dbg ? true : conf.debug);
 conf.production = !!(gutil.env.production ? true : conf.production);
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
-	let isAllAssetsIsMinified = parseArgAsBool(gutil.env['assets-min']);
+	let isAllAssetsIsMinified = utils.parseArgAsBool(gutil.env['assets-min']);
 	conf.assets.min_css = isAllAssetsIsMinified;
 	conf.assets.min_js = isAllAssetsIsMinified;
 	conf.html.bx_component.use_minified_css = isAllAssetsIsMinified;
 	conf.html.bx_component.use_minified_js = isAllAssetsIsMinified;
 }
 if( typeof(gutil.env['assets-min-css']) != 'undefined' ) {
-	conf.assets.min_css = parseArgAsBool(gutil.env['assets-min-css']);
+	conf.assets.min_css = utils.parseArgAsBool(gutil.env['assets-min-css']);
 	conf.html.bx_component.use_minified_css = conf.assets.min_css;
 }
 if( typeof(gutil.env['assets-min-js']) != 'undefined' ) {
-	conf.assets.min_js = parseArgAsBool(gutil.env['assets-min-js']);
+	conf.assets.min_js = utils.parseArgAsBool(gutil.env['assets-min-js']);
 	conf.html.bx_component.use_minified_js = conf.assets.min_js;
 }
 
 if( typeof(gutil.env['dev-no-bsync-css-bundle-file']) != 'undefined' ) {
-	conf.dev_mode.no_bsync_css_bundle_file = parseArgAsBool(gutil.env['dev-no-bsync-css-bundle-file']);
+	conf.dev_mode.no_bsync_css_bundle_file = utils.parseArgAsBool(gutil.env['dev-no-bsync-css-bundle-file']);
 }
 if( typeof(gutil.env['dev-no-build-css-bundle-file']) != 'undefined' ) {
-	conf.dev_mode.no_build_css_bundle_file = parseArgAsBool(gutil.env['dev-no-build-css-bundle-file']);
+	conf.dev_mode.no_build_css_bundle_file = utils.parseArgAsBool(gutil.env['dev-no-build-css-bundle-file']);
 }
 
 if( typeof(gutil.env['js-bundle-no-watching']) != 'undefined' ) {
-	conf.dev_mode.js_bundle_no_watching = parseArgAsBool(gutil.env['js-bundle-no-watching']);
+	conf.dev_mode.js_bundle_no_watching = utils.parseArgAsBool(gutil.env['js-bundle-no-watching']);
 }
 
-function parseArgAsBool(value) {
-	if( typeof(value) == 'string' ) {
-		value = value.trim().toUpperCase();
-		switch(value) {
-			case 'N':
-			case 'NO':
-			case 'FALSE':
-			case 'OFF':
-			case '0':
-				return false;
-		}
-		return true;
-	}
-	return !!value;
-}
+
 
 // "Проглатывает" ошибку, но выводит в терминал
 function swallowError(error) {
@@ -438,50 +340,17 @@ function swallowError(error) {
 }
 
 let browserSyncTimeout = 0;
-function onTaskEnd() {
-
-}
 // noinspection JSUnusedLocalSymbols
 function onTaskEndBrowserReload() {
 	clearTimeout(browserSyncTimeout);
 	browserSyncTimeout = setTimeout(browserSync.reload, 200);
 }
+function onTaskEnd() {
 
-function getRelPathFromPipe(changedFile) {
-	if(changedFile.path.indexOf(conf.curDir) !== 0) {
-		throw 'Обращение к файлу лежащему за пределами собираемого шаблона!:'
-				+'\n    Путь: '+changedFile.path
-				+'\n    Во избежание неожиданного поведения сборщика операция не допускается.';
-	}
-	return substr(changedFile.path, conf.curDir.length+1);
-}
-function substr( f_string, f_start, f_length ) {
-	// Return part of a string
-	//
-	// +	 original by: Martijn Wieringa
-	if(f_start < 0) {
-		f_start += f_string.length;
-	}
-	if(f_length === undefined) {
-		f_length = f_string.length;
-	} else if(f_length < 0){
-		f_length += f_string.length;
-	} else {
-		f_length += f_start;
-	}
-	if(f_length < f_start) {
-		f_length = f_start;
-	}
-	return f_string.substring(f_start, f_length);
 }
 
-function parsePath(path) {
-	let extname = Path.extname(path);
-	return {
-		dirname: Path.dirname(path),
-		basename: Path.basename(path, extname),
-		extname: extname
-	};
+function getRelFilePath(filePath) {
+	return utils.getRelFilePath(filePath, conf.curDir);
 }
 
 let browserSyncReloadIsActive = true;
@@ -548,16 +417,14 @@ gulp.task('precss-main', function() {
 gulp.task('precss-main-bundle', function(done) {
 	runSequence('precss-main', 'css-bundle', done);
 });
-gulp.task('precss-components', function(doneTask) {
+gulp.task('precss-components', function() {
 	return precssCommonPipe(
 		gulp.src(conf.precss.components.files, {dot: true, base: '.'}),
 		'.',
-		conf.debug ? 'component precss:' : '',
-		doneTask
+		conf.debug ? 'component precss:' : ''
 	);
 });
-// noinspection JSUnusedLocalSymbols
-function precssCommonPipe(stream, dest, debugTitle, doneTask) {
+function precssCommonPipe(stream, dest, debugTitle) {
 	let debugMode = true;
 	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
 		debugMode = false;
@@ -601,7 +468,7 @@ function precssCommonPipe(stream, dest, debugTitle, doneTask) {
 		//.pipe(autoprefixer())
 		.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
 		.pipe(tap(function(file, t) {
-			let parsedPath = parsePath(file.relative);
+			let parsedPath = utils.parsePath(file.relative);
 			if(debugMode) {
 				gutil.log(debugTitle+' compile: '+gutil.colors.blue(
 					parsedPath.dirname+Path.sep
@@ -635,7 +502,7 @@ function precssCommonPipe(stream, dest, debugTitle, doneTask) {
 					.pipe(rename({extname: '.min.css'}))
 					.pipe(tap(function(file, t) {
 						if(debugMode) {
-							let parsedPath = parsePath(file.relative);
+							let parsedPath = utils.parsePath(file.relative);
 							gutil.log(debugTitle+'  minify: '+gutil.colors.blue(
 								parsedPath.dirname+Path.sep
 								+' { '+Path.basename(parsedPath.basename, '.min')
@@ -655,7 +522,7 @@ function precssCommonPipe(stream, dest, debugTitle, doneTask) {
 	;
 }
 function precssWatcher(changedFile, target) {
-	let file = getRelPathFromPipe(changedFile)
+	let file = getRelFilePath(changedFile.path)
 		,fileName = Path.basename(file)
 		,stream = null
 		,dest = null
@@ -677,7 +544,7 @@ function precssWatcher(changedFile, target) {
 				if(filePath.indexOf(precssDir) !== 0) {
 					throw 'precss file out of configured precss dir: "'+filePath+'"';
 				}
-				relLessFilePath = conf.precss.main.dest+'/'+substr(filePath, precssDir.length+1);
+				relLessFilePath = conf.precss.main.dest+'/'+utils.substr(filePath, precssDir.length+1);
 				relLessFilePath = relLessFilePath.trim()
 					.replace(/\/\//g, '/')
 					.replace(/\.(less|scss)$/, '.css');
@@ -746,7 +613,7 @@ gulp.task('css-bundle', function() {
 					.pipe(sourcemaps.init({loadMaps: true}))
 					.pipe(tap(function(file) {
 						// исправляем в стилях url(...)
-						let cssFile = getRelPathFromPipe(file);
+						let cssFile = getRelFilePath(file.path);
 						cssFile = cssFile
 							.replace(/\\/g, '/')
 							.replace(/\/\/\//g, '/')
@@ -794,7 +661,7 @@ gulp.task('css-bundle', function() {
 					.pipe(sourcemaps.write('./'))
 					.pipe(gulp.dest(conf.precss.main.dest))
 					.pipe(tap(function(file) {
-						let relFilePath = getRelPathFromPipe(file);
+						let relFilePath = getRelFilePath(file.path);
 						if(Path.extname(relFilePath) === '.css') {
 							if( ! conf.assets.min_css && ! conf.dev_mode.minify_useless_css ) {
 								gutil.log(
@@ -853,10 +720,10 @@ function parseCssBundleImportList(afterParseCallback) {
 	return gulp.src(conf.precss.main.bundle)
 		.pipe(conf.debug ? debug({title: 'css bundle:', showCount: false}) : gutil.noop())
 		.pipe(tap(function(file) {
+			let relBundleFilePath = getRelFilePath(file.path);
 			let bundleName = Path.basename(file.path)
 				.replace(/^_/, '')
 				.replace(/\.(less|scss|css)$/i, '');
-			let relBundleFilePath = getRelPathFromPipe(file);
 
 			let regim = /\s*@import\s*['"]([a-zA-Z0-9_\-\/.]+)(?:\.css|\.less|\.scss)['"];\s*/gim;
 			let rei = /\s*@import\s*['"]([a-zA-Z0-9_\-\/.]+)(?:\.css|\.less|\.scss)['"];\s*/i;
@@ -891,10 +758,6 @@ function parseCssBundleImportList(afterParseCallback) {
  * @task {html}
  * @order {2}
  */
-let htmlTaskCurrentFile = null;
-let nunjucksEnvironment = null;
-let assetsJs = {};
-let assetsCss = {};
 gulp.task('html', function(done) {
 	if( null === cssBundleFiles ) {
 		// Если у нас нет данных о файлах css-bundle-а, то сначала запустим
@@ -915,247 +778,38 @@ gulp.task('html', function(done) {
 // как имя задачи, ибо "--agrument-name" интерпретируется как аргумент getopts
 // а значит будет разрешено только внутреннее использование
 // только в javascript-коде
+
+let njkAssets = {};
 gulp.task('--html-nunjucks', function() {
 	nunjucksRender.nunjucks.configure();
-	assetsJs = {};
-	assetsCss = {};
+	njkAssets = new NunjucksBitrix.ComponentsAssets(conf);
 	// noinspection JSUnusedGlobalSymbols
 	return gulp.src(conf.html.pages)
 		.pipe(plumber())
 		.pipe(conf.debug ? debug({title: 'compile page: '}) : gutil.noop())
-		//.pipe(twig())
 		.pipe(tap(function(file) {
-			htmlTaskCurrentFile = getRelPathFromPipe(file);
+			njkAssets.currentPage = getRelFilePath(file.path);
 		}))
-		.pipe(data(function(file) {
-			function fixSlashes(strPath) {
-				return strPath
-					.replace('\\', '/')
-					.replace('///', '/')
-					.replace('//', '/')
-			}
-			const currentFile = getRelPathFromPipe(file);
-			const currentDir = fixSlashes(Path.dirname(currentFile));
-			const layoutDocumentRoot = Path.relative('/'+currentDir, '/');
-			const layoutSiteTemplatePath = layoutDocumentRoot;
-			const layoutSiteDir = fixSlashes(layoutDocumentRoot+'/'+conf.html.dest+'/');
-			const layoutImagesDir = fixSlashes(layoutSiteTemplatePath+'/'+conf.images.dest);
-			const layoutComponentsBase = fixSlashes(layoutSiteTemplatePath+'/components');
-			return {
-				PRODUCTION: conf.production,
-				CSS_BUNDLE_FILES: cssBundleFiles,
-				CSS_BUNDLE_USE_SEPARATE_FILES: conf.html.css_bundle_use_separate_files,
-				__PAGE__: currentFile,
-				__PATH__: currentDir,
-				DOC_ROOT: layoutDocumentRoot,
-				SITE_DIR: layoutSiteDir,
-				SITE_TEMPLATE_PATH: layoutSiteTemplatePath,
-				IMG_DIR: layoutImagesDir,
-				CMP_BASE: layoutComponentsBase
-			};
-		}))
+		.pipe(NunjucksBitrix.injectData(conf, cssBundleFiles))
 		.pipe(nunjucksRender({
 			path: conf.curDir
 			,ext: '.html'
 			,manageEnv: function(env) {
-				nunjucksEnvironment = env;
-				env.addExtension('BitrixComponents', new NunjucksBitrixComponentTag());
+				env.curDir = conf.curDir;
+				//console.log(env);
+				env.addExtension('BitrixComponents', new NunjucksBitrix.ComponentTag(conf, njkAssets, env));
+				env.addExtension('BitrixComponentAssetsCssPlaceHolder', new NunjucksBitrix.ComponentAssetsCssPlaceHolder());
+				env.addExtension('BitrixComponentAssetsJsPlaceHolder', new NunjucksBitrix.ComponentAssetsJsPlaceHolder());
 				nunjucksIncludeData.install(env);
 			}
 		}))
-		.pipe(tap(function(file) {
-			let cssOut = '<!-- @bx_component_assets_css -->\n';
-			if( null !== htmlTaskCurrentFile
-				&& typeof(assetsCss[htmlTaskCurrentFile]) != 'undefined'
-				&& assetsCss[htmlTaskCurrentFile].length > 0
-			) {
-				for(let iFile=0; iFile < assetsCss[htmlTaskCurrentFile].length; iFile++) {
-					let href = assetsCss[htmlTaskCurrentFile][iFile];
-					cssOut += '<link type="text/css" rel="stylesheet" href="'+href+'">\n';
-				}
-			}
-			let jsOut = '<!-- @bx_component_assets_js -->\n';
-			if( null !== htmlTaskCurrentFile
-				&& typeof(assetsJs[htmlTaskCurrentFile]) != 'undefined'
-				&& assetsJs[htmlTaskCurrentFile].length > 0
-			) {
-				for(let iFile=0; iFile < assetsJs[htmlTaskCurrentFile].length; iFile++) {
-					let href = assetsJs[htmlTaskCurrentFile][iFile];
-					jsOut += '<script type="text/javascript" src="'+href+'"></script>\n';
-				}
-			}
-			file.contents = Buffer.from(file.contents.toString()
-				.replace(/<!--[\s]*@bx_component_assets_css[\s]*-->\n?/, cssOut)
-				.replace(/<!--[\s]*@bx_component_assets_js[\s]*-->\n?/, jsOut)
-			);
-		}))
+		.pipe(NunjucksBitrix.replaceAssetsPlaceHolders(njkAssets))
 		.pipe(gulp.dest(conf.html.dest))
 		.on('end', onTaskEnd)
 		.on('end', function() { browserSyncReload(); })
 	;
-
 });
 
-// noinspection JSUnusedLocalSymbols
-/**
- * Таким образом будет эмулироваться поведение компонентов битрикс
- * используем теги вида {% bx_component
- * 							name="bitrix:news.list"
- * 							template="main-page-list"
- * 							params={}
- * 							data={}
- * 							parent="@component"
- * 						%}
- * TODO: write new tag {% bx_asset_js  "path/to/file.js"  %}
- * TODO: write new tag {% bx_asset_css "path/to/file.css" %}
- */
-function NunjucksBitrixComponentTag(env) {
-	this.tags = ['bx_component'];
-	// noinspection JSUnusedLocalSymbols
-	this.parse = function(parser, nodes, lexer) {
-		// get the tag token
-		let tok = parser.nextToken();
-		let args = parser.parseSignature(null, true);
-		if (args.children.length === 0) {
-			args.addChild(new nodes.Literal(0, 0, ""));
-		}
-		parser.advanceAfterBlockEnd(tok.value);
-		return new nodes.CallExtension(this, tok.value, args, []);
-	};
-	this.bx_component = function(context, args) {
-		let nunjucks = nunjucksRender.nunjucks;
-		if( 'string' != typeof(args.name) ) {
-			throw 'component name not set';
-		}
-		if( 'string' != typeof(args.template) ) {
-			if( 'string' != typeof(args.tpl) ) {
-				//throw 'component template not set';
-				args.tpl = '.default';
-			}
-			args.template = args.tpl;
-		}
-		args.parent = (typeof(args.parent) !== 'string') ? '' : args.parent;
-		let name = args.name.replace(/:/, '/');
-		let template = (args.template.length < 1) ? '.default' : args.template;
-		let parent = '';
-		if( 'string' == typeof(args.parent) && args.parent.length > 0 ) {
-			parent = args.parent+'/';
-		}
-		// noinspection JSUnresolvedVariable
-		let page = 'string' == typeof(args.complex_page)
-			? args.complex_page
-			: 'string' == typeof(args.cmpx_page)
-				? args.cmpx_page
-				: 'string' == typeof(args.cmp_page)
-					? args.cmp_page
-					: 'string' == typeof(args.cpx_page)
-						? args.cpx_page
-						:'string' == typeof(args.page)
-							? args.page
-							:'template';
-		let ctx = extend({}, context.ctx);
-		ctx.templateUrl = '@components/'+parent+name+'/'+template;
-		ctx.templatePath = ctx.templateUrl.replace(/@components/, 'components');
-		ctx.templateFolder = ( typeof(ctx.CMP_BASE) != 'undefined' )
-								? ctx.templateUrl.replace(/@components/, ctx.CMP_BASE)
-								: ctx.templatePath;
-		let templateFilePath = ctx.templatePath+'/'+page+'.njk';
-		if( ! fs.existsSync(templateFilePath) ) {
-			throw 'bx_component error: component "'+name+'/'+template+'" template file not found'
-				+' ('+templateFilePath+')';
-		}
-		if(null === htmlTaskCurrentFile) {
-			throw 'bx_component error: current nunjucks template unknown';
-		}
-
-		function addAsset(assetStore, assetName, isMinified, fileName, fileNameMin) {
-			isMinified = !!isMinified;
-			let fileExists = false;
-			let fileExistsMark = '[-]';
-			let fileUrl = ctx.templateUrl+'/'+(isMinified ? fileNameMin : fileName);
-			let fileHref = fileUrl.replace(/@components/,
-				( typeof(ctx.CMP_BASE) != 'undefined' )
-				? ctx.CMP_BASE : 'components'
-			);
-			let filePath = ctx.templatePath+'/'+(isMinified ? fileNameMin : fileName);
-			if( typeof(assetStore[htmlTaskCurrentFile]) == 'undefined' ) {
-				assetStore[htmlTaskCurrentFile] = [];
-			}
-
-			if( isMinified ) {
-				if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) !== -1 ) {
-					return;
-				}
-				if( fs.existsSync(filePath) ) {
-					fileExists = true;
-					fileExistsMark = '[+]';
-				}
-				else {
-					debugger;
-					fileUrl = ctx.templateUrl+'/'+fileName;
-					fileHref = fileUrl.replace(/@components/,
-						( typeof(ctx.CMP_BASE) != 'undefined' )
-						? ctx.CMP_BASE : 'components'
-					);
-					filePath = ctx.templatePath+'/'+fileName;
-					if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) !== -1 ) {
-						return;
-					}
-					if( fs.existsSync(filePath) ) {
-						fileExists = true;
-						fileExistsMark = '[~]';
-					}
-				}
-			}
-			else {
-				if( assetStore[htmlTaskCurrentFile].indexOf(fileHref) !== -1 ) {
-					return;
-				}
-				if( fs.existsSync(filePath) ) {
-					fileExists = true;
-					fileExistsMark = '[+]';
-				}
-			}
-
-			if( conf.html.bx_component.debug_assets ) gutil.log(gutil.colors.blue(
-				'bx_component asset '+assetName+(isMinified?'.min':'')+': '
-				+fileExistsMark
-				+' "'+fileUrl.replace(/@components\//, '')+'"'
-				+' (in file '+htmlTaskCurrentFile+')'
-			));
-			if( fileExists ) {
-				assetStore[htmlTaskCurrentFile].push(fileHref);
-			}
-		}
-
-		addAsset(assetsJs, ' js', conf.html.bx_component.use_minified_js, 'script.js', 'script.min.js');
-		addAsset(assetsCss, 'css' ,conf.html.bx_component.use_minified_css, 'style.css', 'style.min.css');
-
-		// add params and data
-		if( typeof(args.params) !== 'undefined' ) {
-			ctx.params = extend({}, args.params);
-		}
-		if( typeof(args.data) !== 'undefined' ) {
-			ctx.data = extend({}, args.data);
-		}
-
-		// render bx_component
-		// noinspection JSCheckFunctionSignatures
-		let templateFileContent = fs.readFileSync(
-			conf.curDir+'/'+templateFilePath, {encoding: 'utf8'}
-		);
-		templateFileContent = templateFileContent.replace(
-			/(parent=['"])(@component)(['"])/,
-			'$1'+name+'/'+template+'$3'
-		);
-		if( conf.debug ) {
-			//gutil.log('Render componnt file: '+templateFilePath);
-		}
-		return new nunjucks.runtime.SafeString(
-			nunjucksEnvironment.renderString(templateFileContent, ctx)
-		);
-	};
-}
 
 /**
  * Обработка скриптов
@@ -1178,8 +832,8 @@ gulp.task('js', function(done) {
  * @param bundleDir
  * @returns {Function}
  */
-function tapExternalizeBrowserifySourceMap(bundleDir) {
-	return function(file) {
+function externalizeBrowserifySourceMap(bundleDir) {
+	return tap(function(file) {
 		let mapFileName = Path.basename(file.path)+'.map';
 		let mapFilePath = conf.curDir+'/'+bundleDir+'/'+mapFileName;
 		let src = file.contents.toString();
@@ -1194,8 +848,67 @@ function tapExternalizeBrowserifySourceMap(bundleDir) {
 		let content = convertSourceMap.removeComments(src).trim()
 			+ '\n//# sourceMappingURL=' + Path.basename(mapFilePath);
 		file.contents = Buffer.from(content, 'utf8');
-	};
+	});
 }
+
+function createJsBundleStream(bundleSrcFile, bundleDestDir) {
+	let bundleName = Path.basename(bundleSrcFile)
+		.replace(/^(?:_+|bundle\.)/, '')
+		.replace(/\.js$/, '');
+	let bundleFile = Path.basename(conf.js.bundle.out)
+		.replace( /\*/, bundleName );
+	//gutil.log(bundleName+': '+gutil.colors.blue(bundleDir+'/'+bundleFile));
+	let bfy = browserify(
+		{
+			entries: bundleSrcFile,
+		},
+		{
+			debug: true
+			// ,global: true
+			,paths: [
+				// подключаем модули из
+				conf.curDir+'/node_modules'
+				,conf.curDir+'./js/vendor'
+				,__dirname+'/node_modules'
+			]
+		}
+	);
+
+	// С помощью этого подхода можно будет сделать
+	// карту записимостей файлов и сделать эффективный watcher
+	// Это позволит избюаиться от таска js-vendor-bundle,
+	// который как раз и появился в связи со слишком долгой сборкой js-bundle-а
+	// bfy.pipeline.get('deps').push(through2.obj(
+	// 	function(row, enc, next) {
+	// 		console.log('deps', {
+	// 			id: row.id,
+	// 			file: row.file,
+	// 			deps: row.deps
+	// 		});
+	// 		next();
+	// 	},
+	// 	function() { console.log('end'); }
+	// ));
+	//
+
+	return bfy.bundle()
+		.pipe(vsource(bundleFile))
+		.pipe(plumber())
+		.pipe(gbuffer())
+		.on('error', swallowError)
+		.pipe(externalizeBrowserifySourceMap(bundleDestDir))
+		.pipe(tap(function(file) {
+			file.bundleName = bundleName;
+			file.bundleFile = bundleFile;
+			file.bundleSrcFile = bundleSrcFile;
+			file.debugTitle = 'js-bundle "'+bundleName+'": '
+				+gutil.colors.blue(bundleSrcFile+' -> '+bundleFile)
+			;
+		}))
+		.pipe(gulp.dest(bundleDestDir))
+	;
+}
+
 /**
  * Сборка скриптов из src в bundle
  * @task {js-bundle}
@@ -1204,73 +917,31 @@ function tapExternalizeBrowserifySourceMap(bundleDir) {
 gulp.task('js-bundle', function() {
 	return new Promise(async function(finishTaskLockPromise, rejectTaskLockPromise) {
 		let streams = merge();
-		let bundleDir = Path.dirname(conf.js.bundle.out);
+		let bundleDestDir = Path.dirname(conf.js.bundle.out);
 		// noinspection JSUnusedLocalSymbols
 		let srcFilesStream = gulp.src(conf.js.bundle.src, {dot: true, base: '.'})
 			//.pipe(conf.debug ? debug({title: 'js bundle src:'}) : gutil.noop())
 			.pipe(plumber())
 			.pipe(tap(function(file) {
-				let  bundleSrcFile = getRelPathFromPipe(file)
-					,bundleName = Path.basename(bundleSrcFile)
-						.replace(/^_/, '')
-						.replace(/\.js$/, '')
-					,bundleFile = Path.basename(conf.js.bundle.out)
-						.replace( /\*/, bundleName )
-					;
-				//gutil.log(bundleName+': '+gutil.colors.blue(bundleDir+'/'+bundleFile));
-				if(bundleName === 'vendor') {
-					// noinspection JSUnresolvedFunction
-					gutil.log(gutil.colors.bgRed(
-						'Bundle name "vendor" was reserved. Please rename file "'+bundleSrcFile+'"'
-					));
-				}
-				else {
-					let bfy = browserify({
-							entries: bundleSrcFile,
-							debug: true
-							//paths: ['./node_modules', './js/src']
-						})
-						// .transform(babelify, {
-						// 	presets: [
-						// 		babelPresetEnv,
-						// 		babelPresetStage2
-						// 	]
-						// })
-						// .transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}))
-						// .transform(vueify)
-						;
-					let bundleStream = bfy.bundle()
-						.pipe(vsource(bundleFile))
-						.pipe(plumber())
-						.pipe(gbuffer())
-						.on('error', swallowError)
-						.pipe(tap(tapExternalizeBrowserifySourceMap(bundleDir)))
-						.pipe(tap(function(file) {
-							file.bundleName = bundleName;
-							file.bundleFile = bundleFile;
-							file.bundleSrcFile = bundleSrcFile;
-							file.debugTitle = 'js-bundle "'+bundleName+'": '
-								+gutil.colors.blue(bundleSrcFile+' -> '+bundleFile)
-							;
-						}))
-						.pipe(gulp.dest(bundleDir))
-					;
-					// stream.add(jsScriptsCommonStreamHandler(
-					// 	bundleStream,
-					// 	bundleDir,
-					// 	conf.debug ? 'js-bundle "'+bundleName+'":' : ''
-					// ));
-					streams.add(bundleStream);
-				}
+				let  bundleSrcFile = getRelFilePath(file.path);
+				streams.add(createJsBundleStream(bundleSrcFile, bundleDestDir));
 			}));
+		let resultStream;
 		if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
-			// srcFilesStream.on('end', async function() {});
-			jsScriptStreamMinifyHandler(streams, bundleDir)
+			resultStream = addMinificationHandlerToJsScriptStream(streams, bundleDestDir)
+		}
+		else {
+			resultStream = streams;
+			if(conf.debug) gutil.log(
+				gutil.colors.gray('skipping minify of js-bundles')
+				+gutil.colors.gray(' (checkout --production option)')
+			);
+		}
+		resultStream
 			.pipe(tap(function(file) {
 				// tap() убирать отсюда нельзя.
-				// Он делает какое-то преобразование со stream-ом,
-				// после которого метод on('end') начинает исполняться корректно
-
+				// поскольку он использует through, который
+				// добавляет в стрим событие .on('end')
 				// console.log('## debug ##', {
 				// 	path: file.path,
 				// 	bundleName: file.bundleName,
@@ -1280,21 +951,12 @@ gulp.task('js-bundle', function() {
 			}))
 			.on('end', function() {
 				finishTaskLockPromise();
+				browserSyncReload();
 			})
 			.on('error', function(err) {
 				gutil.log('Error:', err);
 				rejectTaskLockPromise(err);
 			});
-		}
-		else {
-			if(conf.debug) {
-				gutil.log(
-					gutil.colors.gray('skipping minify of js-bundles')
-					+gutil.colors.gray(' (checkout --production option)')
-				);
-			}
-			finishTaskLockPromise();
-		}
 	});
 });
 
@@ -1378,29 +1040,12 @@ gulp.task('js-vendor-bundle', function() {
 		.pipe(rename(bundleFile))
 		.pipe(plumber())
 		.on('error', swallowError)
-		.pipe(tap(tapExternalizeBrowserifySourceMap(bundleDir)))
+		.pipe(externalizeBrowserifySourceMap(bundleDir))
 		.pipe(gulp.dest(bundleDir));
-
-	// С помощью этого метода можно будет сделать
-	// карту записимостей файлов и сделать эффективный watcher
-	// Это позволит избюаиться от таска js-vendor-bundle,
-	// который как раз и появился в связи со слишком долгой сборкой js-bundle-а
-	// let through = require('through2');
-	// bfy.pipeline.get('deps').push(through.obj(
-	// 	function(row, enc, next) {
-	// 		console.log('deps', {
-	// 			id: row.id,
-	// 			file: row.file,
-	// 			deps: row.deps
-	// 		});
-	// 		next();
-	// 	},
-	// 	function() { console.log('end'); }
-	// ));
 
 	// return bundleStream;
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
-		return jsScriptStreamMinifyHandler(
+		return addMinificationHandlerToJsScriptStream(
 			bundleStream,
 			bundleDir,
 			conf.debug ? 'vendor-bundle:' : ''
@@ -1415,7 +1060,7 @@ gulp.task('js-vendor-bundle', function() {
 			);
 		}
 	}
-	return bundleStream
+	return bundleStream.on('end', function() { browserSyncReload(); })
 });
 
 /**
@@ -1425,7 +1070,7 @@ gulp.task('js-vendor-bundle', function() {
  */
 gulp.task('js-scripts', function(done) {
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
-		return jsScriptStreamMinifyHandler(
+		return addMinificationHandlerToJsScriptStream(
 			gulp.src(conf.js.scripts, {dot: true, base: '.'}),
 			'.',
 			conf.debug ? 'js-script:' : ''
@@ -1441,7 +1086,7 @@ gulp.task('js-scripts', function(done) {
 		done();
 	}
 });
-function jsScriptStreamMinifyHandler(stream, dest, debugTitle) {
+function addMinificationHandlerToJsScriptStream(stream, dest, debugTitle) {
 	let debugMode = true;
 	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
 		debugMode = false;
@@ -1465,7 +1110,7 @@ function jsScriptStreamMinifyHandler(stream, dest, debugTitle) {
 	;
 }
 function jsScriptsWatcher(changedFile) {
-	let file = getRelPathFromPipe(changedFile)
+	let file = getRelFilePath(changedFile.path)
 		,dest = Path.dirname(file)
 		,fileName = Path.basename(file)
 		,fileStat = fs.lstatSync(changedFile.path)
@@ -1479,7 +1124,7 @@ function jsScriptsWatcher(changedFile) {
 		)
 	);
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
-		return jsScriptStreamMinifyHandler(
+		return addMinificationHandlerToJsScriptStream(
 			gulp.src(file), dest,''//'js-script watcher:'
 		);
 	}
@@ -1629,7 +1274,7 @@ gulp.task('sprites', function() {
 			//.pipe((!conf.sprites.minify)?gutil.noop():imagemin()) - падает с ошибкой
 			.pipe((!conf.sprites.minify)?gutil.noop():tap(function(file) {
 				// берем уже сохраненный файл в новый стрим
-				let relFilePath = getRelPathFromPipe(file)
+				let relFilePath = getRelFilePath(file.path)
 					,destDir = Path.dirname(relFilePath);
 				return gulp.src(relFilePath, {dot: true})
 					.pipe(imagemin())
@@ -1887,7 +1532,7 @@ gulp.task('add-watchers', async function () {
 			let matchedComponentFiles = [];
 			let matchedMainFiles = [];
 			precssDeepDependenciesIndex[changed.path].forEach(function(dependentFile) {
-				let dependentFileRelPath = getRelPathFromPipe({path: dependentFile});
+				let dependentFileRelPath = getRelFilePath(dependentFile);
 				let matchedMain = false;
 				let filteredMain = false;
 				let matchedComponent = false;
@@ -1951,7 +1596,10 @@ gulp.task('add-watchers', async function () {
 	watchers.push(gulp.watch(conf.js.scripts, WATCH_OPTIONS, function(changed) {
 		return jsScriptsWatcher(changed);
 	}));
-	//done(); нет смысла если используем async-функцию
+
+
+
+	//done(); вызов done-callback-а не имеет смысла если используем async-функцию
 });
 gulp.task('remove-watchers', async function() {
 	precssDeepDependenciesIndex = null;
@@ -2395,7 +2043,7 @@ gulp.task('help-hotkeys', showHelpHotKeys);
  * @task {layout}
  * @order {14}
  */
-gulp.task('layout', function(done) {
+gulp.task('server', function(done) {
 	//runSequence('build', 'watch', 'run-browser-sync');
 	runSequence('watch', 'run-browser-sync');
 	done();

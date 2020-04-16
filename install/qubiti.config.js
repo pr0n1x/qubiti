@@ -21,12 +21,5 @@ module.exports = {
 		// Но после окончания работ надо не забывать собрать бандл руками
 		// опция в консоли: --dev-no-build-css-bundle-file
 		no_build_css_bundle_file: false
-	},
-	js: {
-		vendor: {
-			shim: {
-
-			}
-		}
 	}
 };
