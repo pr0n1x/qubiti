@@ -271,7 +271,6 @@ function injectData(conf, cssBundleFiles) {
 		return {
 			PRODUCTION: conf.production,
 			CSS_BUNDLE_FILES: cssBundleFiles,
-			CSS_BUNDLE_USE_SEPARATE_FILES: conf.html.css_bundle_use_separate_files,
 			__PAGE__: currentFile,
 			__PATH__: currentDir,
 			DOC_ROOT: layoutDocumentRoot,

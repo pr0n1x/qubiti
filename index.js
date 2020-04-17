@@ -33,7 +33,6 @@ const
 	,nunjucksRender = require('gulp-nunjucks-render')
 	,nunjucksIncludeData = require('nunjucks-includeData')
 	,plumber = require('gulp-plumber')
-	,rename = require('gulp-rename')
 	,sourcemaps = require('gulp-sourcemaps')
 	,tap = require('gulp-tap')
 	,uglify = require('gulp-uglify')
@@ -48,6 +47,9 @@ const
 	,browserifyResolveShimify = require('resolve-shimify')
 	,minimatch = require('minimatch')
 	,through2 = require('through2')
+
+	,rename = require('gulp-rename')
+	//,rename = require('./src/gulp-rename')
 
 	,utils = require('./src/utils')
 	,NunjucksBitrix = require('./src/NunjucksBitrix')
@@ -130,7 +132,6 @@ let conf = {
 			,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.json'
 		]
 		,dest: 'html'
-		,css_bundle_use_separate_files: false
 		,bx_component: {
 			 use_minified_js: false
 			,use_minified_css: false
@@ -276,14 +277,15 @@ let conf = {
 };
 
 
-
-Object.defineProperty(conf.dev_mode, 'minify_useless_css', utils.propertyDefinition(conf.production) );
-Object.defineProperty(conf.dev_mode, 'minify_useless_js', utils.propertyDefinition(conf.production) );
-Object.defineProperty(conf.assets, 'min_css', utils.propertyDefinition(conf.production) );
-Object.defineProperty(conf.assets, 'min_js', utils.propertyDefinition(conf.production) );
-Object.defineProperty(conf.html.bx_component, 'use_minified_css', utils.propertyDefinition(conf.production) );
-Object.defineProperty(conf.html.bx_component, 'use_minified_js', utils.propertyDefinition(conf.production) );
-Object.defineProperty(conf.html, 'css_bundle_use_separate_files', utils.propertyDefinition(!conf.production) );
+function isProduction() {
+	return !!conf.production;
+}
+Object.defineProperty(conf.dev_mode, 'minify_useless_css', utils.defineReferenceProperty(isProduction));
+Object.defineProperty(conf.dev_mode, 'minify_useless_js', utils.defineReferenceProperty(isProduction));
+Object.defineProperty(conf.assets, 'min_css', utils.defineReferenceProperty(isProduction));
+Object.defineProperty(conf.assets, 'min_js', utils.defineReferenceProperty(isProduction));
+Object.defineProperty(conf.html.bx_component, 'use_minified_css', utils.defineReferenceProperty(isProduction));
+Object.defineProperty(conf.html.bx_component, 'use_minified_js', utils.defineReferenceProperty(isProduction));
 
 let userConf = require(conf.curDir+'/qubiti.config.js');
 if( typeof(userConf) == 'function' ) {
@@ -292,7 +294,6 @@ if( typeof(userConf) == 'function' ) {
 else {
 	extend(true, conf, userConf);
 }
-
 
 utils.dereferencePlaceHolder(conf.html, /@base/, conf.html.base);
 utils.dereferencePlaceHolder(conf.precss, /@lang/, conf.precss.lang);
@@ -303,6 +304,8 @@ utils.dereferencePlaceHolder(conf.googleWebFonts.dest, /@precss_base/, conf.prec
 // noinspection JSUnresolvedVariable
 conf.debug = !!(gutil.env.dbg ? true : conf.debug);
 conf.production = !!(gutil.env.production ? true : conf.production);
+
+console.log('production', conf.production);
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
 	let isAllAssetsIsMinified = utils.parseArgAsBool(gutil.env['assets-min']);
@@ -424,49 +427,71 @@ gulp.task('precss-components', function() {
 		conf.debug ? 'component precss:' : ''
 	);
 });
+gulp.task('test-precss-one-file', function() {
+	return precssWatcher({path: conf.curDir+'/components/layout/menu/main-nav/style.scss'}, 'components');
+});
 function precssCommonPipe(stream, dest, debugTitle) {
 	let debugMode = true;
 	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
 		debugMode = false;
 	}
 
-	function mapSources(sourcePath, file) {
-		let compileFilePath = file.path.replace(conf.curDir+'/', '');
-		// let compileFileName = Path.basename(compileFilePath);
-		let compileDir = Path.dirname(compileFilePath);
-		// let srcFileName = Path.basename(sourcePath);
-		// let srcFileDir = Path.dirname(sourcePath);
-		let upToRoot = Path.relative('/'+compileDir, '/');
-		let resultSrc = upToRoot+'/'+compileDir+'/'+sourcePath;
-		if( dest === '.' || dest === './' || dest === '.\\' ) {
-			resultSrc = upToRoot+'/'+sourcePath;
+	function mapSourcesCompile(sourcePath, file) {
+		return mapSources(sourcePath, file, 'compile')
+	}
+	function mapSourcesMinify(sourcePath, file) {
+		return mapSources(sourcePath, file, 'minify')
+	}
+	function mapSources(source, file, phase) {
+		const destFilePath = Path.resolve(file.cwd, /*file.base*/dest, file.relative);
+		if ( !file.hasOwnProperty('fixedSources') ) {
+			file.fixedSources = [];
 		}
-		// gutil.log(compileDir+':');
-		// gutil.log(compileDir+':  complie dir: '+compileDir);
-		// gutil.log(compileDir+': complie file: '+compileFileName);
-		// gutil.log(compileDir+': compile path: '+compileFilePath);
-		// gutil.log(compileDir+':     ~ source: '+sourcePath);
-		// gutil.log(compileDir+':     src name: '+srcFileName);
-		// gutil.log(compileDir+':      src dir: '+srcFileDir);
-		// gutil.log(compileDir+':   up to root: '+upToRoot);
-		// gutil.log(compileDir+':   result src: '+resultSrc);
-		// gutil.log(compileDir+':');
+		const fixedSource = file.fixedSources.find(function(fixedSource) {
+			return fixedSource.fixed === source;
+		});
+		const srcFilePath = (fixedSource === undefined)
+			? Path.resolve(file.cwd, file.base, source)
+			: Path.resolve(fixedSource.cwd, fixedSource.base, fixedSource.source);
+		const destDir = Path.relative('/'+Path.dirname(destFilePath), '/'+Path.dirname(srcFilePath));
+		const resultSrc =  (destDir === '')
+			? Path.basename(source)
+			: destDir+'/'+Path.basename(source);
+
+		file.fixedSources.push({
+			cwd: file.cwd,
+			base: file.base,
+			source: source,
+			fixed: resultSrc
+		});
+		// let prefix = 'src map: '+phase;
+		// gutil.log(prefix+':-----------');
+		// gutil.log(prefix+':                INPUT');
+		// gutil.log(prefix+':          dest:', dest);
+		// // gutil.log(prefix+':      src root:', file.sourceMap.sourceRoot);
+		// gutil.log(prefix+':     file.base:', file.base);
+		// gutil.log(prefix+':     file.path:', file.path);
+		// gutil.log(prefix+': file.relative:', file.relative);
+		// gutil.log(prefix+':        source:', source);
+		// gutil.log(prefix+':                RESULT');
+		// gutil.log(prefix+':          dest:', destFilePath);
+		// gutil.log(prefix+':           src:', srcFilePath);
+		// gutil.log(prefix+':    result src:', resultSrc);
+		// gutil.log(prefix+':');
+		// // gutil.log(prefix+': fixed source:');
+		// // gutil.log(prefix+':', file.fixedSources);
+		// gutil.log(prefix+':');
 		return resultSrc;
 	}
 
-	// function isMapFile(file) {
-	// 	return '.map' === file.path.substring(file.path.length-4, file.path.length);
-	// }
-
-	// noinspection JSUnusedLocalSymbols
-	return stream.pipe(plumber())
+	stream = stream
+		.pipe(plumber())
 		.pipe(rename({extname: '.'+conf.precss.lang}))
 		.pipe(sourcemaps.init())
 		.pipe(precss())
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
 		//.pipe(autoprefixer())
-		.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
 		.pipe(tap(function(file, t) {
 			let parsedPath = utils.parsePath(file.relative);
 			if(debugMode) {
@@ -479,47 +504,43 @@ function precssCommonPipe(stream, dest, debugTitle) {
 				));
 			}
 		}))
+		.pipe(sourcemaps.write('.', {
+			includeContent: false
+			,mapSources: mapSourcesCompile
+		}))
 		.pipe(gulp.dest(dest))
 		.pipe(browserSyncStream()) // update target unminified css-file and its map
-		.pipe(tap(function(cssFile, t) {
-			if( Path.extname(cssFile.relative) === '.css') {
-				if( ! conf.assets.min_css && ! conf.dev_mode.minify_useless_css ) {
-					gutil.log(
-						gutil.colors.gray('skipping css minify:')
-						+gutil.colors.blue(' '+cssFile.relative)
-						+gutil.colors.gray(' (checkout --production option)')
-					);
-					return;
-				}
-				if( ! fs.existsSync(cssFile.path) ) {
-					gutil.log(gutil.colors.red('css file '+cssFile.relative+' not ready yet.'));
-				}
-				// noinspection JSUnusedLocalSymbols
-				gulp.src(cssFile.path, {dot: true, base: cssFile.base})
-					.pipe(tap(function(file) {
-						file.sourceMap = cssFile.sourceMap;
-					}))
-					.pipe(rename({extname: '.min.css'}))
-					.pipe(tap(function(file, t) {
-						if(debugMode) {
-							let parsedPath = utils.parsePath(file.relative);
-							gutil.log(debugTitle+'  minify: '+gutil.colors.blue(
-								parsedPath.dirname+Path.sep
-								+' { '+Path.basename(parsedPath.basename, '.min')
-								+(('.map' === parsedPath.extname) ? '': '.css')
-								+' -> '
-								+parsedPath.basename+parsedPath.extname+' } '
-							));
-						}
-					}))
-					.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
-					.pipe(sourcemaps.write('.', { includeContent: true, mapSources: mapSources }))
-					.pipe(gulp.dest(dest))
-					.pipe(browserSyncStream()) // update .min.css, .min.css.map files
-				;
-			}
-		}))
 	;
+	if( conf.assets.min_css || conf.dev_mode.minify_useless_css ) {
+		const cssFilter = filter('**/*.css');
+		stream = stream.pipe(cssFilter)
+			.pipe(sourcemaps.init({loadMaps: true}))
+			.pipe(tap(function(file, t) {
+				if(debugMode) {
+					let parsedPath = utils.parsePath(file.relative);
+					gutil.log(debugTitle+'  minify: '+gutil.colors.blue(
+						parsedPath.dirname+Path.sep
+						+' { '+Path.basename(parsedPath.basename, '.min')
+						+(('.map' === parsedPath.extname) ? '': '.css')
+						+' -> '
+						+parsedPath.basename+parsedPath.extname+' } '
+					));
+				}
+			}))
+			.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
+			.pipe(rename({extname: '.min.css'}))
+			.pipe(sourcemaps.write('.', {
+				includeContent: false
+				,mapSources: mapSourcesMinify
+			}))
+			.pipe(gulp.dest(dest))
+			.pipe(browserSyncStream()) // update .min.css, .min.css.map files
+	} else {
+		gutil.log(
+			gutil.colors.gray('skipping css minification: checkout --production option')
+		);
+	}
+	return stream;
 }
 function precssWatcher(changedFile, target) {
 	let file = getRelFilePath(changedFile.path)
@@ -558,8 +579,11 @@ function precssWatcher(changedFile, target) {
 			if(conf.debug) gutil.log('precss watcher: '+gutil.colors.blue(file));
 			break;
 		case 'components':
-			dest = Path.dirname(file);
-			stream = gulp.src(dest+'/'+conf.precss.components.styleName, {dot: true, base: dest});
+			dest = '.';
+			stream = gulp.src(
+				Path.dirname(file)+'/'+conf.precss.components.styleName,
+				{dot: true, base: '.'}
+			);
 			if(conf.debug) gutil.log(
 				'precss watcher: '
 				+gutil.colors.blue(dest+'/'
@@ -1970,7 +1994,7 @@ function showHelpHotKeys(done) {
               При создании новых компонентов и шаблонов необходимо использовать именно этот вариант.
 
 "Shift + d" - Переключить debug-mode в противоположный.
-              Так же уравляется ключем. $ gulp some-task --debug
+              Так же уравляется ключем. $ gulp some-task --dbg
 
 "Shift + p" - Переключить production-mode.
               Так же управляется ключем. $ gulp some-task --production
@@ -2043,7 +2067,7 @@ gulp.task('help-hotkeys', showHelpHotKeys);
  * @task {layout}
  * @order {14}
  */
-gulp.task('server', function(done) {
+gulp.task('serve', function(done) {
 	//runSequence('build', 'watch', 'run-browser-sync');
 	runSequence('watch', 'run-browser-sync');
 	done();

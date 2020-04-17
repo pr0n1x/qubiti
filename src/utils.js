@@ -26,24 +26,25 @@ function substr(f_string, f_start, f_length) {
  * @returns {string}
  */
 function getRelFilePath(filePath, currentDir) {
-	if(filePath.indexOf(currentDir) !== 0) {
+	if (filePath.indexOf(Path.sep) === 0 && filePath.indexOf(currentDir) !== 0) {
 		throw 'Обращение к файлу лежащему за пределами собираемого шаблона!:'
 		+'\n    Путь: '+filePath
 		+'\n    Во избежание неожиданного поведения сборщика операция не допускается.';
 	}
+	filePath = Path.resolve(currentDir, filePath);
 	return substr(filePath, currentDir.length+1);
 }
 
-function propertyDefinition(initialValue) {
-	let currentValue = undefined;
+function defineReferenceProperty(referenceGetter) {
+	let selfValue = undefined;
 	return {
 		get: function() {
-			return (typeof(currentValue) == 'undefined')
-				? initialValue
-				: currentValue;
+			return (typeof(selfValue) == 'undefined')
+				? referenceGetter()
+				: selfValue;
 		},
-		set: function(newValue) {
-			currentValue = newValue;
+		set: function(newSelfValue) {
+			selfValue = newSelfValue;
 		}
 	};
 }
@@ -117,7 +118,7 @@ function parsePath(path) {
 
 module.exports.substr = substr;
 module.exports.getRelFilePath = getRelFilePath;
-module.exports.propertyDefinition = propertyDefinition;
+module.exports.defineReferenceProperty = defineReferenceProperty;
 module.exports.dereferencePlaceHolder = dereferencePlaceHolder;
 module.exports.parseArgAsBool = parseArgAsBool;
 module.exports.parsePath = parsePath;
