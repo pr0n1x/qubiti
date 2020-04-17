@@ -19,7 +19,9 @@ const
 	,EventEmitter = require('events').EventEmitter
 	,decodeKeypress = require('decode-keypress')
 	,concat = require('gulp-concat')
-	,cssnano = require('gulp-cssnano')
+	,postcss = require('gulp-postcss')
+	,autoprefixer = require('autoprefixer')
+	,cssnano = require('cssnano')
 	,convertSourceMap = require('convert-source-map')
 	,debug = require('gulp-debug')
 	,filter = require('gulp-filter')
@@ -495,7 +497,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 		.pipe(precss())
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
-		//.pipe(autoprefixer())
+		.pipe(postcss([autoprefixer()]))
 		.pipe(tap(function(file, t) {
 			let parsedPath = utils.parsePath(file.relative);
 			if(debugMode) {
@@ -531,7 +533,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 					));
 				}
 			}))
-			.pipe(cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/}))
+			.pipe(postcss([cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/})]))
 			.pipe(rename({extname: '.min.css'}))
 			.pipe(sourcemaps.write('.', {
 				includeContent: false
@@ -703,7 +705,7 @@ gulp.task('css-bundle', function() {
 							stream.add(gulp.src(relFilePath)
 								.pipe(sourcemaps.init({loadMaps: true}))
 								.pipe(rename({extname: '.min.css'}))
-								.pipe(cssnano({zindex: false}))
+								.pipe(postcss([cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/})]))
 								.pipe(
 									( conf.production
 										|| !isInteractiveMode
