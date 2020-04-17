@@ -49,6 +49,7 @@
     "lodash.assign": "^4.2.0",
     "merge-stream": "^1.0.1",
     "minimatch": "^3.0.4",
+    "node-sass-tilde-importer": "^1.0.2",
     "nunjucks": "^3.0.0",
     "nunjucks-includeData": "0.0.9",
     "resolve-shimify": "^1.0.0",

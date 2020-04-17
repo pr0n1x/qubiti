@@ -47,7 +47,7 @@ const
 	,browserifyResolveShimify = require('resolve-shimify')
 	,minimatch = require('minimatch')
 	,through2 = require('through2')
-
+	,nodeSassTildeImporter = require('node-sass-tilde-importer')
 	,rename = require('gulp-rename')
 	//,rename = require('./src/gulp-rename')
 
@@ -394,11 +394,15 @@ function browserSyncReload(done) {
  * @task {precss}
  * @order {3}
  */
-function precss(...args) {
+function precss(opts, ...args) {
+	if (typeof opts !== 'object') opts = {};
 	if (conf.precss.lang === 'less') {
-		return less(...args);
+		return less(opts, ...args);
 	} else if (conf.precss.lang === 'scss') {
-		return sass(...args);
+		if (typeof opts.importer !== 'function') {
+			opts.importer = nodeSassTildeImporter;
+		}
+		return sass(opts, ...args);
 	}
 	throw 'Incorrect css preprocessor language';
 }
