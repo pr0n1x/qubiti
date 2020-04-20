@@ -636,7 +636,7 @@ gulp.task('css-bundle', function() {
 				);
 			}
 
-			if(null !== cssBundleFiles && cssBundleFiles.length > 0) {
+			if(Array.isArray(cssBundleFiles) && cssBundleFiles.length > 0) {
 				let bundleStream = gulp.src(cssBundleFiles, {dot: true})
 					.pipe(conf.debug ? debug({title: 'css bundle file:', showCount: false}) : gutil.noop())
 					.pipe(plumber())
@@ -868,6 +868,7 @@ function externalizeBrowserifySourceMap(bundleDir) {
 		let mapFilePath = conf.curDir+'/'+bundleDir+'/'+mapFileName;
 		let src = file.contents.toString();
 		let converter = convertSourceMap.fromSource(src);
+		converter.sourcemap.sourceRoot = Path.relative('/'+bundleDir, '/');
 		fs.writeFileSync(
 			mapFilePath,
 			converter
@@ -1013,7 +1014,7 @@ gulp.task('js-vendor-bundle', function() {
 	);
 	let bfyReqShimsExists = false;
 	let bfyReqShims = {};
-	function addRequireResoverShim(reqLib, libPath) {
+	function addRequireResolverShim(reqLib, libPath) {
 		if( '.js' === libPath.substring(libPath.length-3, libPath.length) ) {
 			//onsole.log('shim: '+reqLib+' => '+packageJson.browser[reqLib]);
 			bfyReqShims[reqLib] = conf.curDir+'/'+libPath;
@@ -1025,13 +1026,13 @@ gulp.task('js-vendor-bundle', function() {
 		if( typeof(packageJson['browserify-shim']) != 'undefined') {
 			for(let bfyShimLib in packageJson['browserify-shim']) {
 				// noinspection JSUnfilteredForInLoop
-				addRequireResoverShim(bfyShimLib, packageJson['browserify-shim'][bfyShimLib]);
+				addRequireResolverShim(bfyShimLib, packageJson['browserify-shim'][bfyShimLib]);
 			}
 		}
 		if( typeof(packageJson['browser']) != 'undefined') {
 			for(let browserShimLib in packageJson.browser) {
 				// noinspection JSUnfilteredForInLoop
-				addRequireResoverShim(browserShimLib, packageJson.browser[browserShimLib]);
+				addRequireResolverShim(browserShimLib, packageJson.browser[browserShimLib]);
 			}
 		}
 	}
@@ -1133,7 +1134,9 @@ function addMinificationHandlerToJsScriptStream(stream, dest, debugTitle) {
 		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
 		.pipe(browserSyncStream()) // update target unminified file
 		.pipe(rename({extname: '.min.js'}))
-		.pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: '.' }))
+		.pipe(sourcemaps.write('.', {
+			includeContent: false
+		}))
 		.pipe(gulp.dest(dest))
 		.pipe(browserSyncStream()) // update minfied and map files
 		.on('end', onTaskEnd)
