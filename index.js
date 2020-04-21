@@ -1908,7 +1908,7 @@ class KeyPressEmitter extends EventEmitter {
 			this.emit('buildAllStyles');
 		}
 		else if( true === key.shift && key.name === 'l' ) {
-			gutil.log('Hot key [l]: Build obly bundle of main styles');
+			gutil.log('Hot key [l]: Build only bundle of main styles');
 			this.emit('buildCssBundle');
 		}
 		else if( false === key.shift && key.name === 'l' ) {
