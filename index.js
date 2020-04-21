@@ -6,6 +6,8 @@
  * 1. Если в компонентах нет ни одного файла style.(less|scss), то таск по сборке стилей будет падать
  * 2. При удалении файлов в интерактивном режиме, сервер скорее всего упадет.
  *    Просто заново запускаем и не забиваем себе голову.
+ * 3. Если вести разработку в production-режиме, то hot-reload в браузере стилей будет
+ *    отставать от реального состояния кода на один шаг. Одно сохранение. Связано это со сборкой css-bundle-файла.
  */
 
 module.exports = function(gulp, currentTemplateDir) {
@@ -1956,7 +1958,7 @@ class KeyPressEmitter extends EventEmitter {
 			this.emit('switchProductionMode');
 		}
 		else if( false === key.shift && key.name === 'r' ) {
-			gutil.log('Hot key [r]: Reload all (almost for components)');
+			gutil.log('Hot key [r]: Reload components');
 			this.emit('reloadAll');
 		}
 		else if( false === key.shift && key.name === 'b' ) {
