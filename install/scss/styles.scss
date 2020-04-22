@@ -1,0 +1,6 @@
+@import "~bootstrap/scss/functions";
+@import "~bootstrap/scss/variables";
+@import "~bootstrap/scss/mixins/breakpoints";
+@import "./main-layout";
+@import "./mixins/svgicons";
+@include svgicons-sif-generate;

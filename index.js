@@ -271,11 +271,11 @@ let conf = {
 	,svgIconFont: {
 		src: 'img.src/svgicons/**/*.svg'
 		,formats: ['woff2', 'woff', 'ttf', 'eot', 'svg']
-		,less: {
-			template: 'img.src/svgicons/_less.tmpl'
-			// result path is relative to dest folder i.e. fonts/svgicons in this case
-			,result: '../../less/mixins/svgicons.less'
-		}
+		,template: 'img.src/svgicons/_@precss_lang.tmpl'
+		// result path is relative to dest folder i.e. fonts/svgicons in this case
+		,result: '../../@precss_base/mixins/svgicons.@precss_lang'
+		,fontName: 'svgicons'
+		,cssClass: 'sif'
 		,dest: 'fonts/svgicons'
 	}
 };
@@ -304,6 +304,8 @@ utils.dereferencePlaceHolder(conf.precss, /@lang/, conf.precss.lang);
 utils.dereferencePlaceHolder(conf.precss.main, /@base/, conf.precss.main.base);
 utils.dereferencePlaceHolder(conf.precss.components.files, /@styleName/, conf.precss.components.styleName);
 utils.dereferencePlaceHolder(conf.googleWebFonts.dest, /@precss_base/, conf.precss.main.base);
+utils.dereferencePlaceHolder(conf.svgIconFont, /@precss_lang/, conf.precss.lang);
+utils.dereferencePlaceHolder(conf.svgIconFont, /@precss_base/, conf.precss.main.base);
 
 // noinspection JSUnresolvedVariable
 conf.debug = !!(gutil.env.dbg ? true : conf.debug);
@@ -1181,19 +1183,20 @@ function jsScriptsWatcher(changedFile) {
  */
 gulp.task('svg-icons-font', function() {
 	// let runTimestamp = Math.round(Date.now()/1000);
-	let fontName = 'svgi';
 	return gulp.src(conf.svgIconFont.src, {dot: true, base: '.'})
 		.pipe(plumber())
 		.pipe(iconfontCss({
-			fontName: fontName
-			,path: conf.svgIconFont.less.template
-			,targetPath: conf.svgIconFont.less.result
+			fontName: conf.svgIconFont.fontName
+			,path: conf.svgIconFont.template
+			,targetPath: conf.svgIconFont.result
 			,fontPath: conf.svgIconFont.dest
-			,cssClass: 'afonico'
+			,cssClass: conf.svgIconFont.cssClass
 		}))
 		.pipe(iconfont({
-			fontName: fontName
+			fontName: conf.svgIconFont.fontName
 			,formats: conf.svgIconFont.formats
+			,normalize: true
+			,fontHeight: 1001
 		}))
 		.pipe(gulp.dest(conf.svgIconFont.dest));
 });

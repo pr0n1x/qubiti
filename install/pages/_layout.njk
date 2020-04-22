@@ -1,0 +1,39 @@
+{%- if not title -%}{%- set title = "Page Title" -%}{%- endif -%}
+{# importType=( '' | '.min' | '-import' ) #}
+{%- macro cssBundle(useSeparateFiles=false, suffix='.min') -%}
+	{% if useSeparateFiles %}
+	<!-- that files are parts of css-bundle -->
+	{% for cssUrl in CSS_BUNDLE_FILES -%}
+	<link type="text/css" rel="stylesheet" href="{{ SITE_TEMPLATE_PATH }}/{{ cssUrl.replace('.css', suffix+'.css') }}">
+	{% endfor %}
+	<!-- you can use one of this files -->
+	<!-- <link type="text/css" rel="stylesheet" href="{{ SITE_TEMPLATE_PATH }}/css/bundle-import.css"> -->
+	<!-- <link type="text/css" rel="stylesheet" href="{{ SITE_TEMPLATE_PATH }}/css/bundle.css"> -->
+	<!-- <link type="text/css" rel="stylesheet" href="{{ SITE_TEMPLATE_PATH }}/css/bundle.min.css"> -->
+	{% else %}
+	<link type="text/css" rel="stylesheet" href="{{ SITE_TEMPLATE_PATH }}/css/bundle{{ suffix }}.css">
+	{% endif %}
+{%- endmacro -%}
+{%- macro getSiteDir() -%}
+	{%- if not DOC_ROOT -%}{%- set DOC_ROOT = ".." -%}{%- endif -%}
+	{%- if not SITE_DIR -%}{%- set SITE_DIR = DOC_ROOT ~ "/html/" -%}{%- endif -%}
+	{{ SITE_DIR }}
+{%- endmacro -%}
+{# put here your pages links #}
+{%- set pages = {
+	pages_list:			{title: "Список страниц", href: getSiteDir()~"pages.html"},
+	ui_kit:				{title: "UI Kit", href: getSiteDir()~"ui-kit.html"},
+	base:				{title: "Текстовая страница", href: getSiteDir()~"text.html"},
+	index:				{title: "Главная страница", href: getSiteDir()~"index.html"}
+} -%}
+{#
+put your code macros or/and data set here
+like
+	{%- set mainMenuItemsList = [
+		{link: pages.prices.href, text: pages.prices.title},
+		{link: pages.faq.href, text: pages.faq.title},
+		{link: pages.calc.href, text: pages.calc.title},
+		{link: pages.contacts.href, text: pages.contacts.title}
+	] -%}
+#}
+{% extends "pages/_site_template.njk" %}

@@ -1,0 +1,56 @@
+<% _.each(glyphs, function(glyph) { %>@<%= fontName %>-<%= cssClass %>-<%= glyph.fileName %>: "\<%= glyph.codePoint %>";
+<% }); %>
+.-<%= fontName %>-fontface() {
+	@font-face {
+		font-family: "<%= fontName %>";
+		src: url('../<%= fontPath %>/<%= fontName %>.eot');
+		src: url('../<%= fontPath %>/<%= fontName %>.eot?#iefix') format('eot'),
+			url('../<%= fontPath %>/<%= fontName %>.woff2') format('woff2'),
+			url('../<%= fontPath %>/<%= fontName %>.woff') format('woff'),
+			url('../<%= fontPath %>/<%= fontName %>.ttf') format('truetype'),
+			url('../<%= fontPath %>/<%= fontName %>.svg#<%= fontName %>') format('svg');
+	}
+}
+
+.-<%= fontName %>-<%= cssClass %>-base() {
+	font-family: "<%= fontName %>";
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	display: inline-block;
+	position: relative;
+	top: 0.1em;
+	font-style: normal;
+	font-weight: normal;
+	line-height: 1;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+.-<%= fontName %>-<%= cssClass %>-base-pseudo() {
+	font-family: "<%= fontName %>";
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	font-style: normal;
+	font-variant: normal;
+	font-weight: normal;
+	// speak: none; // only necessary if not using the private unicode range (firstGlyph option)
+	text-decoration: none;
+	text-transform: none;
+}
+
+.-<%= fontName %>-<%= cssClass %>-generate() {
+	.<%= cssClass %> { .-<%= fontName %>-<%= cssClass %>-base(); }
+	.<%= cssClass %>-pseudo { .-<%= fontName %>-<%= cssClass %>-base-pseudo(); }
+	.<%= cssClass %>(@filename, @insert: before) {
+		&:extend(.<%= cssClass %>);
+		@pseudo-selector: ~":@{insert}";
+		&@{pseudo-selector} {
+			&:extend(.<%= cssClass %>-pseudo);
+			@content-filename: ~"<%= fontName %>-<%= cssClass %>-@{filename}";
+			content: @@content-filename;
+		}
+	}
+	<% _.each(glyphs, function(glyph) { %>.<%= cssClass %>-<%= glyph.fileName %> {
+		.<%= cssClass %>(<%= glyph.fileName %>);
+	}
+	<% }); %>
+}
