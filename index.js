@@ -8,6 +8,7 @@
  *    Просто заново запускаем и не забиваем себе голову.
  * 3. Если вести разработку в production-режиме, то hot-reload в браузере стилей будет
  *    отставать от реального состояния кода на один шаг. Одно сохранение. Связано это со сборкой css-bundle-файла.
+ * 4. js-vendor-bundle упадет если не соз0дана папка js
  */
 
 module.exports = function(gulp, currentTemplateDir) {
@@ -50,10 +51,12 @@ const
 	,browserify = require('browserify')
 	,browserifyResolveShimify = require('resolve-shimify')
 	,minimatch = require('minimatch')
-	,through2 = require('through2')
 	,nodeSassTildeImporter = require('node-sass-tilde-importer')
 	,rename = require('gulp-rename')
-	//,rename = require('./src/gulp-rename')
+	,ttf2eot = require('gulp-ttf2eot')
+	,ttf2woff = require('gulp-ttf2woff')
+	,ttf2woff2 = require('gulp-ttf2woff2')
+	//,through2 = require('through2')
 
 	,utils = require('./src/utils')
 	,NunjucksBitrix = require('./src/NunjucksBitrix')
@@ -117,7 +120,7 @@ let conf = {
 		,proxyLamp: 'default.loc'
 	}
 	,html: {
-		base: 'pages'
+		base: 'sources/html'
 		,pages: [
 			'@base/**/*.njk'
 			,'!@base/**/_*.njk'
@@ -146,7 +149,7 @@ let conf = {
 	,precss: {
 		lang: 'less', // can be "less" or "scss"
 		main: {
-			 base: '@lang'
+			 base: 'sources/@lang'
 			,dest: 'css'
 			,bundle: '@base/_bundle.css'
 			,files: [
@@ -194,40 +197,37 @@ let conf = {
 	}
 	,js: {
 		bundle: {
-			src: 'js/src/_*.js'
+			src: [
+				'sources/js/bundle.*.js'
+				,'!sources/js/bundle.vendor.js'
+			]
 			,out: 'js/bundle.*.js'
 			,watch: [
-				'js/src/**/*.js',
-				'js/**/*.vue',
-				'vue/**/*.vue'
+				'sources/js/**/*.js',
+				'sources/js/**/*.vue'
 			]
 		}
 		,vendor: {
-			src: 'js/vendor/_bundle.js'
+			src: 'sources/js/bundle.vendor.js'
 			,out: 'js/bundle.vendor.js'
-			,shim: {
-				// jquery: 'js/vendor/jquery.js'
-				// ,"jquery-mousewheel": 'js/vendor/jquery.mousewheel/jquery.mousewheel.js'
-				// ,doT: 'js/vendor/doT/doT.js'
-			}
 		}
 		,scripts: [
-			'js/**/*.js'
+			'sources/js/**/*.js'
 
 			// исключаем исходники для require с прозвольными именами, но с префиксом "_"
-			,'!js/**/_*.js'
-			,'!js/**/_*/*.js'
+			,'!sources/js/**/_*.js'
+			,'!sources/js/**/_*/*.js'
 
 			// исключаем исходники для require
-			,'!js/src/**/*.js'
-			,'!js/vendor/**/*.js'
+			,'!sources/js/**/*.js'
+			,'!sources/js/vendor/**/*.js'
 
 			// Исключаем уже собранные файлы
-			,'!js/**/*{.,-}min.js'
-			,'!js/bundle.*.js'
-			,'!js/vue.*.js'
+			// ,'!js/**/*{.,-}min.js'
+			// ,'!js/bundle.*.js'
+			// ,'!js/vue.*.js'
 
-			// Собираем компонентны js-файлы
+			// Обрабатываем (минифицируем) js-файлы компонентов
 			,'components/*/*/**.js'
 			,'components/*/*/{*,.*}/**/*.js'
 			,'components/*/*/{*,.*}/*/*/{*,.*}/**/*.js'
@@ -244,8 +244,7 @@ let conf = {
 	}
 	,images: {
 		src: [
-			'img.src/**/*.{jpeg,jpg,png,gif,ico}',
-			'!img.src/svgicons'
+			'sources/images/**/*.{jpeg,jpg,png,gif,ico}',
 		]
 		,dest: 'images'
 	}
@@ -254,22 +253,30 @@ let conf = {
 		,imgUrl: '../images/sprites'
 		,minify: true
 		,dest: {
-			img: 'images/sprites',
-			less: 'less/vars/sprites',
-			lessMixins: 'less/mixins/sprites.less'
+			img: 'sources/sprites',
+			less: 'sources/less/vars/sprites',
+			lessMixins: 'sources/less/mixins/sprites.less'
 		}
 	}
+	,webFonts: {
+		src: [
+			'sources/fonts/**/*.ttf'
+			,'!sources/js/**/_*.ttf'
+			,'!sources/js/**/_*/*.ttf'
+		],
+		dest: 'fonts'
+	}
 	,googleWebFonts: {
-		fontsList: 'fonts/gwf/google-web-fonts.list' // relative to the site template root
+		fontsList: 'sources/google-web-fonts.list' // relative to the site template root
 		,fontsDir: '../fonts/gwf/' // fontsDir is relative to dest
 		,cssDir: 'lib/' // cssDir is relative to dest
 		,cssFilename: 'google-web-fonts.css'
 		,dest: './@precss_base/'
 	}
 	,svgIconFont: {
-		src: 'img.src/svgicons/**/*.svg'
+		src: 'sources/svgiconsfont/**/*.svg'
 		,formats: ['woff2', 'woff', 'ttf', 'eot', 'svg']
-		,template: 'img.src/svgicons/_@precss_lang.tmpl'
+		,template: 'sources/svgiconsfont/_@precss_lang.tmpl'
 		// result path is relative to dest folder i.e. fonts/svgicons in this case
 		,result: '../../@precss_base/mixins/svgicons.@precss_lang'
 		,fontName: 'svgicons'
@@ -308,8 +315,6 @@ utils.dereferencePlaceHolder(conf.svgIconFont, /@precss_base/, conf.precss.main.
 // noinspection JSUnresolvedVariable
 conf.debug = !!(gutil.env.dbg ? true : conf.debug);
 conf.production = !!(gutil.env.production ? true : conf.production);
-
-console.log('production', conf.production);
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
 	let isAllAssetsIsMinified = utils.parseArgAsBool(gutil.env['assets-min']);
@@ -450,6 +455,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 	function mapSourcesMinify(sourcePath, file) {
 		return mapSources(sourcePath, file, 'minify')
 	}
+	// noinspection JSUnusedLocalSymbols
 	function mapSources(source, file, phase) {
 		const destFilePath = Path.resolve(file.cwd, /*file.base*/dest, file.relative);
 		if ( !file.hasOwnProperty('fixedSources') ) {
@@ -500,7 +506,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 		// fix for stop watching on less compile error)
 		.on('error', swallowError)
 		.pipe(postcss([autoprefixer()]))
-		.pipe(tap(function(file, t) {
+		.pipe(tap(function(file) {
 			let parsedPath = utils.parsePath(file.relative);
 			if(debugMode) {
 				gutil.log(debugTitle+' compile: '+gutil.colors.blue(
@@ -523,7 +529,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 		const cssFilter = filter('**/*.css');
 		stream = stream.pipe(cssFilter)
 			.pipe(sourcemaps.init({loadMaps: true}))
-			.pipe(tap(function(file, t) {
+			.pipe(tap(function(file) {
 				if(debugMode) {
 					let parsedPath = utils.parsePath(file.relative);
 					gutil.log(debugTitle+'  minify: '+gutil.colors.blue(
@@ -828,7 +834,7 @@ gulp.task('--html-nunjucks', function() {
 			,ext: '.html'
 			,manageEnv: function(env) {
 				env.curDir = conf.curDir;
-				//console.log(env);
+				//onsole.log(env);
 				env.addExtension('BitrixComponents', new NunjucksBitrix.ComponentTag(conf, njkAssets, env));
 				env.addExtension('BitrixComponentAssetsCssPlaceHolder', new NunjucksBitrix.ComponentAssetsCssPlaceHolder());
 				env.addExtension('BitrixComponentAssetsJsPlaceHolder', new NunjucksBitrix.ComponentAssetsJsPlaceHolder());
@@ -1039,9 +1045,6 @@ gulp.task('js-vendor-bundle', function() {
 		}
 	}
 	if( bfyReqShimsExists ) {
-		for(let confShimLib in conf.js.vendor.shim) {
-			bfyReqShims[confShimLib] = conf.curDir+'/'+conf.js.vendor.shim[confShimLib];
-		}
 		//onsole.log(bfyReqShims);
 		bfy.plugin(browserifyResolveShimify, bfyReqShims);
 	}
@@ -1068,7 +1071,7 @@ gulp.task('js-vendor-bundle', function() {
 	}
 
 	let bundleStream = bfy.bundle(handleBrowserifyBundle)
-		.pipe(vsource(bundleFile))
+		.pipe(vsource(bundleFile, bundleDir))
 		.pipe(vbuffer())
 		.pipe(rename(bundleFile))
 		.pipe(plumber())
@@ -1197,6 +1200,26 @@ gulp.task('svg-icons-font', function() {
 			,fontHeight: 1001
 		}))
 		.pipe(gulp.dest(conf.svgIconFont.dest));
+});
+
+/**
+ * @task {ttf-to-web-fonts}
+ */
+gulp.task('ttf-to-web-fonts', function () {
+	let stream = merge();
+	// stream.add(gulp.src(conf.webFonts.src)
+	// 	.pipe(gulp.dest(conf.webFonts.dest)))
+	stream.add(gulp.src(conf.webFonts.src)
+		.pipe(ttf2eot())
+		.pipe(gulp.dest(conf.webFonts.dest)));
+	stream.add(gulp.src(conf.webFonts.src)
+		.pipe(ttf2woff())
+		.pipe(gulp.dest(conf.webFonts.dest)));
+	stream.add(gulp.src(conf.webFonts.src)
+		.pipe(ttf2woff2())
+		.pipe(gulp.dest(conf.webFonts.dest)));
+	// noinspection JSUnresolvedFunction
+	return stream.pipe(conf.debug ? debug({title: 'web-font'}) : gutil.noop());
 });
 
 /**
@@ -1359,23 +1382,6 @@ function getSpriteBatchList() {
 	return spriteBatchList;
 }
 
-
-/**
- * Задача переписывает значения bower-файлов устанавливаемых пакетов
- * в соответствие с данными блока overrides основного bower-файла проекта
- * @ task {bower}
- */
-gulp.task('bower', function() {
-// 	let bowerMainFiles = require('main-bower-files');
-// 	console.log(bowerMainFiles());
-// 	let bowerOverrides = require('gulp-bower-overrides');
-// 	return gulp.src('bower_components/*/bower.json')
-// 		.pipe(bowerOverrides())
-// 		.pipe(gulp.dest('bower_components'))
-// 	;
-});
-
-
 /**
  * Собрать проект. Собирает стили, js-файлы и html-файлы.
  * Спрайты, загрузка шрифтов, созание иконочных шрифтов этой задачей на затрагиваются и должны быть запущены явно.
@@ -1499,7 +1505,7 @@ function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
 					catch(e) {
 						reject(e);
 					}
-					//console.log('# recursionResult', recursionResult);
+					//onsole.log('# recursionResult', recursionResult);
 				}
 			}
 			_debug('| '.repeat(depth-1)+'@ RESOLVE'+(dependecyOf?' for '+dependecyOf:''));
@@ -1559,7 +1565,7 @@ gulp.task('add-watchers', async function () {
 			//onsole.log('precss dep tree parsed');
 		}
 		// else {
-		// 	console.log('precss dep tree is ready');
+		// 	//onsole.log('precss dep tree is ready');
 		// }
 		if( typeof(precssDeepDependenciesIndex[changed.path]) == 'object'
 			&& Array.isArray(precssDeepDependenciesIndex[changed.path])
@@ -2032,11 +2038,11 @@ function showHelpHotKeys(done) {
         "j" - Сборка js-bundle(ов)
               Аналог $ gulp js-bundle
               из js/src/_<bundle_name>.js -> js/bundle.<bundle_name[.min].js
-              Как bundle один js/src/_index.js -> js/bundle.index[.min].js
+              Как bundle один js/src/bundle.index.js -> js/bundle.index[.min].js
               <bundle_name> не может значение "vendor"
 "Shift + j" - Сборка js-vendor-bundle(а)
               Аналог $ gulp js-vendor-bundle
-              из js/vendor/_bundle.js -> js/bundle.vendor[.min].js
+              из js/vendor/bundle.vendor.js -> js/bundle.vendor[.min].js
 
         "k" - Обработка всех скриптов кроме js-bundle-ов.
               Чаще всего используется для файлов script.js в компонентах

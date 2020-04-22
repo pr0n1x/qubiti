@@ -19,6 +19,7 @@
 	{%- if not SITE_DIR -%}{%- set SITE_DIR = DOC_ROOT ~ "/html/" -%}{%- endif -%}
 	{{ SITE_DIR }}
 {%- endmacro -%}
+
 {# put here your pages links #}
 {%- set pages = {
 	pages_list:			{title: "Список страниц", href: getSiteDir()~"pages.html"},
@@ -26,9 +27,9 @@
 	base:				{title: "Текстовая страница", href: getSiteDir()~"text.html"},
 	index:				{title: "Главная страница", href: getSiteDir()~"index.html"}
 } -%}
-{#
-put your code macros or/and data set here
-like
+
+{# put your code macros or/and data sets here
+example
 	{%- set mainMenuItemsList = [
 		{link: pages.prices.href, text: pages.prices.title},
 		{link: pages.faq.href, text: pages.faq.title},
@@ -36,4 +37,5 @@ like
 		{link: pages.contacts.href, text: pages.contacts.title}
 	] -%}
 #}
-{% extends "pages/_site_template.njk" %}
+
+{% extends "sources/html/_site_template.njk" %}

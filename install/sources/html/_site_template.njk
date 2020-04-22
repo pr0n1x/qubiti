@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8">
+	<meta name="language" content="Russian">
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta http-equiv="Content-Language" content="ru">
+	<meta name="viewport" content="width=device-width"/>
+	<link rel="icon" type="image/x-icon" href="{{ SITE_TEMPLATE_PATH }}/favicon.ico" />
+	<title>{{ title }}</title>
+	{% bx_component_assets_css %}
+	{% block css %}
+		{{ cssBundle(not PRODUCTION, '.min' if PRODUCTION else '') }}
+		{# {{ cssBundle(true, '.min' if PRODUCTION else '') }} #}
+	{% endblock %}
+	<script type="text/javascript">
+		document.documentElement.className += (
+			('ontouchstart' in document.documentElement) ? 'touch' : 'no-touch');
+		//alert(('ontouchstart' in document.documentElement)?'touch':'no-touch');
+		window.SITE_DIR = '{{ SITE_DIR }}';
+	</script>
+</head>
+
+<body>
+	<div id="site" class="site">
+		{% block header %}
+			<header class="main-header">
+				<div class="container">
+
+				</div><!-- .container -->
+			</header>
+		{% endblock %}
+		<main id="main" class="site__main site-main" role="main">
+			{% block main %}
+				<section class="site-main__content container">
+					{% block h1 %}<h1>{{ title }}</h1>{% endblock %}
+					{% block breadcrumb %}{% endblock %}
+					{% block content %}{% endblock %}
+				</section>
+			{% endblock %}
+		</main>
+		{% block footer %}
+			<footer class="site__footer">
+				{% bx_component name="layout:footer" %}
+			</footer>
+		{% endblock %}
+
+	</div><!-- /.site -->
+	{% block js %}
+		{% if PRODUCTION %}
+			<script src="{{ SITE_TEMPLATE_PATH }}/js/bundle.vendor.min.js"></script>
+			<script src="{{ SITE_TEMPLATE_PATH }}/js/bundle.index.min.js"></script>
+		{% else %}
+			<script src="{{ SITE_TEMPLATE_PATH }}/js/bundle.vendor.js"></script>
+			<script src="{{ SITE_TEMPLATE_PATH }}/js/bundle.index.js"></script>
+		{% endif %}
+		{% bx_component_assets_js %}
+	{% endblock %}
+</body>
+</html>
