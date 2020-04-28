@@ -33,6 +33,7 @@ const
 	,iconfont = require('gulp-iconfont')
 	,iconfontCss = require('gulp-iconfont-css')
 	,imagemin = require('gulp-imagemin')
+	,svg2z = require('gulp-svg2z')
 	,less = require('gulp-less')
 	,sass = require('gulp-sass')
 	,nunjucksRender = require('gulp-nunjucks-render')
@@ -79,7 +80,7 @@ let conf = {
 	}
 	,dev_mode: {
 		// .dev_mode.minify_useless_css определяет пересобирать ли min-файлы
-		// если .assets.min_css == false. Если false, то и минифицировать по идее не нужно.
+		// если .assets.min_css == false, то и минифицировать по идее не нужно.
 		// Минификаия - это тяжелая операция, которая сэкономить
 		// много времени на сборке в режиме разработки.
 		// Ниже эти параметры определены как ф-ия (getter) от ключа .production
@@ -243,10 +244,12 @@ let conf = {
 		]
 	}
 	,images: {
-		src: [
-			'sources/images/**/*.{jpeg,jpg,png,gif,ico}',
-		]
+		src: [ 'sources/images/**/*.{jpeg,jpg,png,gif,ico,svg}', ]
 		,dest: 'images'
+		,png: { optimizationLevel: 3 }
+		,jpeg: { quality: 75, progressive: true }
+		,gifscale: { interlaced: true }
+		,svgo: { removeViewBox: true }
 	}
 	,sprites: {
 		src: 'sprites'
@@ -274,7 +277,11 @@ let conf = {
 		,dest: './@precss_base/'
 	}
 	,svgIconFont: {
-		src: 'sources/svgiconsfont/**/*.svg'
+		src: [
+			'sources/svgiconsfont/**/*.svg'
+			,'!sources/svgiconsfont/**/_*.svg'
+			,'!sources/svgiconsfont/**/_*/*.svg'
+		]
 		,formats: ['woff2', 'woff', 'ttf', 'eot', 'svg']
 		,template: 'sources/svgiconsfont/_@precss_lang.tmpl'
 		// result path is relative to dest folder i.e. fonts/svgicons in this case
@@ -315,6 +322,9 @@ utils.dereferencePlaceHolder(conf.svgIconFont, /@precss_base/, conf.precss.main.
 // noinspection JSUnresolvedVariable
 conf.debug = !!(gutil.env.dbg ? true : conf.debug);
 conf.production = !!(gutil.env.production ? true : conf.production);
+if (gutil.env['optipng-level'] !== undefined) {
+	conf.images.png.optimizationLevel = gutil.env['optipng-level'];
+}
 
 if( typeof(gutil.env['assets-min']) != 'undefined' ) {
 	let isAllAssetsIsMinified = utils.parseArgAsBool(gutil.env['assets-min']);
@@ -1246,7 +1256,14 @@ gulp.task('google-web-fonts', function() {
 gulp.task('images', function() {
 	return gulp.src(conf.images.src, {dot: true})
 		.pipe(conf.debug ? debug({title: 'optimizing image:'}) : gutil.noop())
-		.pipe(imagemin())
+		.pipe(imagemin([
+			imagemin.optipng(conf.images.png),
+			imagemin.mozjpeg(conf.images.jpeg),
+			imagemin.gifsicle(conf.images.gifscale),
+			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
+		]))
+		// .pipe(imagemin())
+		.pipe(svg2z())
 		.pipe(gulp.dest(conf.images.dest))
 		.on('end', onTaskEnd)
 		.pipe(browserSyncStream());
@@ -2107,9 +2124,19 @@ gulp.task('phpdev', function(done) {
 	done();
 });
 
+function browserSyncSvgzMiddleware(req, res, next) {
+	if ('.svgz' === Path.extname(req.url)) {
+		res.setHeader("Content-Encoding", "gzip");
+	}
+	next();
+}
 
 gulp.task('run-browser-sync', function() {
-	browserSync.init(conf.browserSync);
+	// noinspection JSUnusedGlobalSymbols
+	browserSync.init({
+		...conf.browserSync,
+		middleware: browserSyncSvgzMiddleware
+	});
 });
 
 gulp.task('run-lamp-proxy', function() {
