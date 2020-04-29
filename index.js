@@ -8,7 +8,7 @@
  *    Просто заново запускаем и не забиваем себе голову.
  * 3. Если вести разработку в production-режиме, то hot-reload в браузере стилей будет
  *    отставать от реального состояния кода на один шаг. Одно сохранение. Связано это со сборкой css-bundle-файла.
- * 4. js-vendor-bundle упадет если не соз0дана папка js
+ * 4. js-vendor-bundle упадет если не создана папка js
  */
 
 module.exports = function(gulp, currentTemplateDir) {
@@ -17,6 +17,7 @@ module.exports = function(gulp, currentTemplateDir) {
 const
 	os = require('os')
 	,fs = require('fs')
+	//,glob = require('glob')
 	,extend = require('extend')
 	,Path = require('path')
 	,EventEmitter = require('events').EventEmitter
@@ -25,7 +26,6 @@ const
 	,postcss = require('gulp-postcss')
 	,autoprefixer = require('autoprefixer')
 	,cssnano = require('cssnano')
-	,convertSourceMap = require('convert-source-map')
 	,debug = require('gulp-debug')
 	,filter = require('gulp-filter')
 	,googleWebFonts = require('gulp-google-webfonts')
@@ -41,14 +41,12 @@ const
 	,plumber = require('gulp-plumber')
 	,sourcemaps = require('gulp-sourcemaps')
 	,tap = require('gulp-tap')
-	,uglify = require('gulp-uglify')
 	,gutil = require('gulp-util')
 	,spritesmith = require('gulp.spritesmith')
 	,merge = require('merge-stream')
 	,runSequence = require('run-sequence').use(gulp)
 	,vbuffer = require('vinyl-buffer')
 	,vsource = require('vinyl-source-stream')
-	,gbuffer = require('gulp-buffer')
 	,browserify = require('browserify')
 	,browserifyResolveShimify = require('resolve-shimify')
 	,minimatch = require('minimatch')
@@ -61,6 +59,7 @@ const
 
 	,utils = require('./src/utils')
 	,NunjucksBitrix = require('./src/NunjucksBitrix')
+	,JsTools = require('./src/JsTools')
 ;
 
 const browserSyncEmitter = new EventEmitter();
@@ -198,35 +197,25 @@ let conf = {
 	}
 	,js: {
 		bundle: {
-			src: [
-				'sources/js/bundle.*.js'
-				,'!sources/js/bundle.vendor.js'
-			]
-			,out: 'js/bundle.*.js'
+			base: 'sources/js'
+			,src: '@js_bundle_base/*.js'
+			,dest: 'js/bundle.*.js'
 			,watch: [
-				'sources/js/**/*.js',
-				'sources/js/**/*.vue'
+				 '@js_bundle_base/**/*.{js,vue,jsx,jsm}'
+				,'!@js_bundle_base/{vendor,modules}/**/*.{js,vue,jsx,jsm}'
 			]
-		}
-		,vendor: {
-			src: 'sources/js/bundle.vendor.js'
-			,out: 'js/bundle.vendor.js'
+			,modules: [
+				'node_modules'
+				,'@js_bundle_base/vendor'
+				,'@js_bundle_base/modules'
+			]
 		}
 		,scripts: [
-			'sources/js/**/*.js'
-
-			// исключаем исходники для require с прозвольными именами, но с префиксом "_"
-			,'!sources/js/**/_*.js'
-			,'!sources/js/**/_*/*.js'
-
-			// исключаем исходники для require
-			,'!sources/js/**/*.js'
-			,'!sources/js/vendor/**/*.js'
-
-			// Исключаем уже собранные файлы
-			// ,'!js/**/*{.,-}min.js'
-			// ,'!js/bundle.*.js'
-			// ,'!js/vue.*.js'
+			'js/**/*.js'
+			// исключаем bundle-ы
+			,'!js/bundle.*.js'
+			// исключаем уже минифицированные файлы
+			,'!js/**/*{.,-}{min,pack}.js'
 
 			// Обрабатываем (минифицируем) js-файлы компонентов
 			,'components/*/*/**.js'
@@ -235,7 +224,7 @@ let conf = {
 
 			// Исключаем уже собранные файлы и всякое для require
 			,'!components/*/*/{*,.*}/*{.,-}min.js'
-			,'!components/*/*/{*,.*}/*/*/{*,.*}/*{.,-}min.js'
+			,'!components/*/*/{*,.*}/*/*/{*,.*}/*{.,-}{min,pack}.js'
 			,'!components/*/*/{*,.*}/vendor/**/*.js'
 			,'!components/*/*/{*,.*}/*/*/{*,.*}/vendor/**/*.js'
 			,'!components/*/*/{*,.*}/_*.js'
@@ -318,6 +307,7 @@ utils.dereferencePlaceHolder(conf.precss.components.files, /@styleName/, conf.pr
 utils.dereferencePlaceHolder(conf.googleWebFonts.dest, /@precss_base/, conf.precss.main.base);
 utils.dereferencePlaceHolder(conf.svgIconFont, /@precss_lang/, conf.precss.lang);
 utils.dereferencePlaceHolder(conf.svgIconFont, /@precss_base/, conf.precss.main.base);
+utils.dereferencePlaceHolder(conf.js.bundle, /@js_bundle_base/, conf.js.bundle.base);
 
 // noinspection JSUnresolvedVariable
 conf.debug = !!(gutil.env.dbg ? true : conf.debug);
@@ -354,21 +344,14 @@ if( typeof(gutil.env['js-bundle-no-watching']) != 'undefined' ) {
 }
 
 
+const jsTools = new JsTools(gulp, conf, createBrowserSyncStream);
 
-// "Проглатывает" ошибку, но выводит в терминал
-function swallowError(error) {
-	gutil.log(error);
-	this.emit('end');
-}
 
 let browserSyncTimeout = 0;
 // noinspection JSUnusedLocalSymbols
 function onTaskEndBrowserReload() {
 	clearTimeout(browserSyncTimeout);
 	browserSyncTimeout = setTimeout(browserSync.reload, 200);
-}
-function onTaskEnd() {
-
 }
 
 function getRelFilePath(filePath) {
@@ -384,13 +367,13 @@ function switchBrowserSync(state) {
 		browserSyncReloadIsActive = !browserSyncReloadIsActive;
 	}
 }
-function browserSyncStream() {
+function createBrowserSyncStream() {
 	return browserSyncReloadIsActive
 		? browserSync.stream()
 		: gutil.noop()
 }
 
-function browserSyncReload(done) {
+function reloadBrowserSync(done) {
 	if( browserSyncReloadIsActive ) {
 		if( typeof(done) == 'function' ) {
 			//util.log(gutil.colors.red('browser-sync reload'));
@@ -514,7 +497,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 		.pipe(sourcemaps.init())
 		.pipe(precss())
 		// fix for stop watching on less compile error)
-		.on('error', swallowError)
+		.on('error', utils.swallowError)
 		.pipe(postcss([autoprefixer()]))
 		.pipe(tap(function(file) {
 			let parsedPath = utils.parsePath(file.relative);
@@ -533,7 +516,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 			,mapSources: mapSourcesCompile
 		}))
 		.pipe(gulp.dest(dest))
-		.pipe(browserSyncStream()) // update target unminified css-file and its map
+		.pipe(createBrowserSyncStream()) // update target unminified css-file and its map
 	;
 	if( conf.assets.min_css || conf.dev_mode.minify_useless_css ) {
 		const cssFilter = filter('**/*.css');
@@ -558,7 +541,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 				,mapSources: mapSourcesMinify
 			}))
 			.pipe(gulp.dest(dest))
-			.pipe(browserSyncStream()) // update .min.css, .min.css.map files
+			.pipe(createBrowserSyncStream()) // update .min.css, .min.css.map files
 	} else {
 		gutil.log(
 			gutil.colors.gray('skipping css minification: checkout --production option')
@@ -637,7 +620,7 @@ function precssWatcher(changedFile, target) {
 gulp.task('css-bundle', function() {
 	let stream = new merge();
 
-	stream.add(parseCssBundleImportList(function(bundleName, relBundleFilePath, cssBundleFiles, cssBundleFilesImport) {
+	stream.add(parseCssBundleImportListAsync(function(bundleName, relBundleFilePath, cssBundleFiles, cssBundleFilesImport) {
 		if( conf.production
 			|| !isInteractiveMode
 			|| !conf.dev_mode.no_build_css_bundle_file
@@ -650,7 +633,7 @@ gulp.task('css-bundle', function() {
 					}))
 					.pipe(gulp.dest(conf.precss.main.dest))
 					// Уведомляем браузер если изменился bundle-import.css
-					.pipe(browserSyncStream())
+					.pipe(createBrowserSyncStream())
 				);
 			}
 
@@ -700,7 +683,7 @@ gulp.task('css-bundle', function() {
 							|| !isInteractiveMode
 							|| !conf.dev_mode.no_bsync_css_bundle_file
 						)
-						? browserSyncStream()
+						? createBrowserSyncStream()
 						: (conf.debug
 							? debug({title: 'ignoring browser-sync update of css-bundle:', showCount: false})
 							: gutil.noop()
@@ -729,7 +712,7 @@ gulp.task('css-bundle', function() {
 										|| !isInteractiveMode
 										|| !conf.dev_mode.no_bsync_css_bundle_file
 									)
-									? browserSyncStream()
+									? createBrowserSyncStream()
 									: (conf.debug
 										? debug({title: 'ignoring browser-sync update of css-bundle:', showCount: false})
 										: gutil.noop()
@@ -752,17 +735,14 @@ gulp.task('css-bundle', function() {
 			);
 		}
 	}));
-
-	// noinspection JSUnresolvedFunction
-	stream.on('end', onTaskEnd);
 	return stream;
 });
 
 gulp.task('css-bundle-parse-imports-list', function() {
-	return parseCssBundleImportList();
+	return parseCssBundleImportListAsync();
 });
 
-function parseCssBundleImportList(afterParseCallback) {
+function parseCssBundleImportListAsync(afterParseCallback) {
 	cssBundleFiles = [];
 	let cssBundleFilesImport = '';
 	return gulp.src(conf.precss.main.bundle)
@@ -853,8 +833,7 @@ gulp.task('--html-nunjucks', function() {
 		}))
 		.pipe(NunjucksBitrix.replaceAssetsPlaceHolders(njkAssets))
 		.pipe(gulp.dest(conf.html.dest))
-		.on('end', onTaskEnd)
-		.on('end', function() { browserSyncReload(); })
+		.on('end', function() { reloadBrowserSync(); })
 	;
 });
 
@@ -864,99 +843,11 @@ gulp.task('--html-nunjucks', function() {
  * @task {js}
  * @order {5}
  */
-//gulp.task('js', ['js-bundle', 'js-scripts', 'js-vendor-bundle']);
 gulp.task('js', function(done) {
-	runSequence(['js-bundle', 'js-scripts', 'js-vendor-bundle'], done);
+	runSequence(['js-bundle', 'js-scripts'], done);
 });
-/**
- * Выделяем встроенный sourcemap browserify в отдельный файл
- * Этот обработчик передается в .pipe(tap(...))
- * https://github.com/thlorenz/exorcist
- * https://github.com/thlorenz/convert-source-map
- *
- * Ещё можно попробовать это https://www.npmjs.com/package/gulp-extract-sourcemap
- * ну... да пускай будет как есть.
- *
- * @param bundleDir
- * @returns {Function}
- */
-function externalizeBrowserifySourceMap(bundleDir) {
-	return tap(function(file) {
-		let mapFileName = Path.basename(file.path)+'.map';
-		let mapFilePath = conf.curDir+'/'+bundleDir+'/'+mapFileName;
-		let src = file.contents.toString();
-		let converter = convertSourceMap.fromSource(src);
-		converter.sourcemap.sourceRoot = Path.relative('/'+bundleDir, '/');
-		fs.writeFileSync(
-			mapFilePath,
-			converter
-				.toJSON()
-				.replace(new RegExp(''+conf.curDir+'/', 'gim'), '../')
-				.replace(new RegExp('"js/([a-zA-Z0-9\\-_.]+)/', 'gim'), '"../js/$1/')
-		);
-		let content = convertSourceMap.removeComments(src).trim()
-			+ '\n//# sourceMappingURL=' + Path.basename(mapFilePath);
-		file.contents = Buffer.from(content, 'utf8');
-	});
-}
 
-function createJsBundleStream(bundleSrcFile, bundleDestDir) {
-	let bundleName = Path.basename(bundleSrcFile)
-		.replace(/^(?:_+|bundle\.)/, '')
-		.replace(/\.js$/, '');
-	let bundleFile = Path.basename(conf.js.bundle.out)
-		.replace( /\*/, bundleName );
-	//gutil.log(bundleName+': '+gutil.colors.blue(bundleDir+'/'+bundleFile));
-	let bfy = browserify(
-		{
-			entries: bundleSrcFile,
-		},
-		{
-			debug: true
-			// ,global: true
-			,paths: [
-				// подключаем модули из
-				conf.curDir+'/node_modules'
-				,conf.curDir+'./js/vendor'
-				,__dirname+'/node_modules'
-			]
-		}
-	);
 
-	// С помощью этого подхода можно будет сделать
-	// карту записимостей файлов и сделать эффективный watcher
-	// Это позволит избюаиться от таска js-vendor-bundle,
-	// который как раз и появился в связи со слишком долгой сборкой js-bundle-а
-	// bfy.pipeline.get('deps').push(through2.obj(
-	// 	function(row, enc, next) {
-	// 		console.log('deps', {
-	// 			id: row.id,
-	// 			file: row.file,
-	// 			deps: row.deps
-	// 		});
-	// 		next();
-	// 	},
-	// 	function() { console.log('end'); }
-	// ));
-	//
-
-	return bfy.bundle()
-		.pipe(vsource(bundleFile))
-		.pipe(plumber())
-		.pipe(gbuffer())
-		.on('error', swallowError)
-		.pipe(externalizeBrowserifySourceMap(bundleDestDir))
-		.pipe(tap(function(file) {
-			file.bundleName = bundleName;
-			file.bundleFile = bundleFile;
-			file.bundleSrcFile = bundleSrcFile;
-			file.debugTitle = 'js-bundle "'+bundleName+'": '
-				+gutil.colors.blue(bundleSrcFile+' -> '+bundleFile)
-			;
-		}))
-		.pipe(gulp.dest(bundleDestDir))
-	;
-}
 
 /**
  * Сборка скриптов из src в bundle
@@ -964,149 +855,7 @@ function createJsBundleStream(bundleSrcFile, bundleDestDir) {
  * @order {7}
  */
 gulp.task('js-bundle', function() {
-	return new Promise(async function(finishTaskLockPromise, rejectTaskLockPromise) {
-		let streams = merge();
-		let bundleDestDir = Path.dirname(conf.js.bundle.out);
-		// noinspection JSUnusedLocalSymbols
-		let srcFilesStream = gulp.src(conf.js.bundle.src, {dot: true, base: '.'})
-			//.pipe(conf.debug ? debug({title: 'js bundle src:'}) : gutil.noop())
-			.pipe(plumber())
-			.pipe(tap(function(file) {
-				let  bundleSrcFile = getRelFilePath(file.path);
-				streams.add(createJsBundleStream(bundleSrcFile, bundleDestDir));
-			}));
-		let resultStream;
-		if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
-			resultStream = addMinificationHandlerToJsScriptStream(streams, bundleDestDir)
-		}
-		else {
-			resultStream = streams;
-			if(conf.debug) gutil.log(
-				gutil.colors.gray('skipping minify of js-bundles')
-				+gutil.colors.gray(' (checkout --production option)')
-			);
-		}
-		resultStream
-			.pipe(tap(function(file) {
-				// tap() убирать отсюда нельзя.
-				// поскольку он использует through, который
-				// добавляет в стрим событие .on('end')
-				// console.log('## debug ##', {
-				// 	path: file.path,
-				// 	bundleName: file.bundleName,
-				// 	bundleFile: file.bundleFile,
-				// 	bundleSrcFile: file.bundleSrcFile
-				// });
-			}))
-			.on('end', function() {
-				finishTaskLockPromise();
-				browserSyncReload();
-			})
-			.on('error', function(err) {
-				gutil.log('Error:', err);
-				rejectTaskLockPromise(err);
-			});
-	});
-});
-
-/**
- * Сборка сторонних библиотек в bundle
- * @task {js-vendor-bundle}
- * @order {8}
- */
-gulp.task('js-vendor-bundle', function() {
-	let bundleDir = Path.dirname(conf.js.vendor.out)
-		,bundleFile = Path.basename(conf.js.vendor.out);
-	let bfy = browserify(
-		conf.curDir+'/'+conf.js.vendor.src,
-		{
-			debug: true
-			// ,global: true
-			,paths: [
-				// подключаем модули из
-				conf.curDir+'/node_modules'
-				,conf.curDir+'./js/vendor'
-				,__dirname+'/node_modules'
-			]
-		}
-	);
-	let bfyReqShimsExists = false;
-	let bfyReqShims = {};
-	function addRequireResolverShim(reqLib, libPath) {
-		if( '.js' === libPath.substring(libPath.length-3, libPath.length) ) {
-			//onsole.log('shim: '+reqLib+' => '+packageJson.browser[reqLib]);
-			bfyReqShims[reqLib] = conf.curDir+'/'+libPath;
-			bfyReqShimsExists = true;
-		}
-	}
-	if( fs.existsSync(conf.curDir+'/package.json') ) {
-		let packageJson = require(conf.curDir+'/package.json');
-		if( typeof(packageJson['browserify-shim']) != 'undefined') {
-			for(let bfyShimLib in packageJson['browserify-shim']) {
-				// noinspection JSUnfilteredForInLoop
-				addRequireResolverShim(bfyShimLib, packageJson['browserify-shim'][bfyShimLib]);
-			}
-		}
-		if( typeof(packageJson['browser']) != 'undefined') {
-			for(let browserShimLib in packageJson.browser) {
-				// noinspection JSUnfilteredForInLoop
-				addRequireResolverShim(browserShimLib, packageJson.browser[browserShimLib]);
-			}
-		}
-	}
-	if( bfyReqShimsExists ) {
-		//onsole.log(bfyReqShims);
-		bfy.plugin(browserifyResolveShimify, bfyReqShims);
-	}
-	// bfy.transform(babelify.configure(babelConfig), babelConfig)
-	// 	.transform(vueify, { babel: babelConfig })
-	// 	.transform(babelify)
-	// 	.transform(vueify)
-	// 	.transform(envify({NODE_ENV: conf.production ? 'production' : 'development'}));
-
-	// if(conf.debug) {
-	// 	bfy.on('transform', function(tr, src) {
-	// 		gutil.log(gutil.colors.blue('browserify transform: '+src));
-	// 	})
-	// }
-
-	function handleBrowserifyBundle(err) {
-		if(err) {
-			gutil.log(
-				gutil.colors.red('Browserify bundling error: <<<')
-				+os.EOL+err+os.EOL
-				+gutil.colors.red('===')
-			);
-		}
-	}
-
-	let bundleStream = bfy.bundle(handleBrowserifyBundle)
-		.pipe(vsource(bundleFile, bundleDir))
-		.pipe(vbuffer())
-		.pipe(rename(bundleFile))
-		.pipe(plumber())
-		.on('error', swallowError)
-		.pipe(externalizeBrowserifySourceMap(bundleDir))
-		.pipe(gulp.dest(bundleDir));
-
-	// return bundleStream;
-	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
-		return addMinificationHandlerToJsScriptStream(
-			bundleStream,
-			bundleDir,
-			conf.debug ? 'vendor-bundle:' : ''
-		);
-	}
-	else {
-		if(conf.debug) {
-			gutil.log(
-				gutil.colors.gray('skipping minify of ')
-				+gutil.colors.blue(bundleFile)
-				+gutil.colors.gray(' (checkout --production option)')
-			);
-		}
-	}
-	return bundleStream.on('end', function() { browserSyncReload(); })
+	return jsTools.buildJsBundles();
 });
 
 /**
@@ -1115,48 +864,19 @@ gulp.task('js-vendor-bundle', function() {
  * @order {6}
  */
 gulp.task('js-scripts', function(done) {
+	let stream = gulp.src(conf.js.scripts, {dot: true, base: '.'});
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
-		return addMinificationHandlerToJsScriptStream(
-			gulp.src(conf.js.scripts, {dot: true, base: '.'}),
-			'.',
-			conf.debug ? 'js-script:' : ''
+		stream = jsTools.addMinificationToJsStream(
+			stream,'.', conf.debug ? 'js-script:' : ''
 		);
 	}
-	else {
-		if(conf.debug) {
-			gutil.log(
-				gutil.colors.gray('skipping minify of js-files')
-				+gutil.colors.gray(' (checkout --production option)')
-			);
-		}
-		done();
-	}
+	else if(conf.debug) gutil.log(
+		gutil.colors.gray('skipping js-scripts minification')
+		+gutil.colors.gray(' (checkout --production option)')
+	);
+	return stream.pipe(createBrowserSyncStream());
 });
-function addMinificationHandlerToJsScriptStream(stream, dest, debugTitle) {
-	let debugMode = true;
-	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
-		debugMode = false;
-	}
-	return stream
-		.pipe(plumber())
-		.pipe(tap(function(file) {
-			if( typeof(file.debugTitle) == 'string' ) {
-				gutil.log(file.debugTitle);
-			}
-		}))
-		.pipe(sourcemaps.init({loadMaps: true}))
-		.pipe(uglify())
-		.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
-		.pipe(browserSyncStream()) // update target unminified file
-		.pipe(rename({extname: '.min.js'}))
-		.pipe(sourcemaps.write('.', {
-			includeContent: false
-		}))
-		.pipe(gulp.dest(dest))
-		.pipe(browserSyncStream()) // update minfied and map files
-		.on('end', onTaskEnd)
-	;
-}
+
 function jsScriptsWatcher(changedFile) {
 	let file = getRelFilePath(changedFile.path)
 		,dest = Path.dirname(file)
@@ -1171,19 +891,18 @@ function jsScriptsWatcher(changedFile) {
 			dest+'/{ '+fileName+' -> '+fileName.replace(/\.js/, '.min.js')+' }'
 		)
 	);
+	let stream = gulp.src(file);
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
-		return addMinificationHandlerToJsScriptStream(
-			gulp.src(file), dest,''//'js-script watcher:'
-		);
-	}
-	if(conf.debug) {
+		stream = jsTools.addMinificationToJsStream(stream, dest);
+	} else if(conf.debug) {
 		gutil.log(
 			gutil.colors.gray('skipping minify of ')
 			+gutil.colors.blue(file)
 			+gutil.colors.gray(' (checkout --production option)')
 		);
 	}
-	return gutil.noop();
+	stream.pipe(createBrowserSyncStream());
+	return stream;
 }
 
 
@@ -1196,6 +915,7 @@ gulp.task('svg-icons-font', function() {
 	// let runTimestamp = Math.round(Date.now()/1000);
 	return gulp.src(conf.svgIconFont.src, {dot: true, base: '.'})
 		.pipe(plumber())
+		.pipe(debug({title: 'svg-icon'}))
 		.pipe(iconfontCss({
 			fontName: conf.svgIconFont.fontName
 			,path: conf.svgIconFont.template
@@ -1265,8 +985,7 @@ gulp.task('images', function() {
 		// .pipe(imagemin())
 		.pipe(svg2z())
 		.pipe(gulp.dest(conf.images.dest))
-		.on('end', onTaskEnd)
-		.pipe(browserSyncStream());
+		.pipe(createBrowserSyncStream());
 });
 
 /**
@@ -1360,7 +1079,7 @@ gulp.task('sprites', function() {
 			.pipe(filterLess)
 			.pipe(gulp.dest(conf.sprites.dest.less))
 			.pipe(filterLess.restore)
-			.pipe(browserSyncStream())
+			.pipe(createBrowserSyncStream())
 		;
 		resultStream.add(spriteBatch.stream);
 	});
@@ -1413,7 +1132,6 @@ gulp.task('build', function(done) {
 		'precss-components',
 		'js-bundle',
 		'js-scripts',
-		'js-vendor-bundle',
 		'--html-nunjucks',
 		done
 	);
@@ -1434,14 +1152,14 @@ function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
 	}
 
 	let depth = treePath.length+1;
-	let dependecyOf = (treePath.length > 0)?treePath[treePath.length-1]:'';
+	let dependencyOf = (treePath.length > 0)?treePath[treePath.length-1]:'';
 
 	let dependencies = {};
 
 	//_debug('call', arguments);
 
 	return new Promise(function(resolve, reject) {
-		_debug('| '.repeat(depth-1)+'@ RUN PROMISE'+(dependecyOf?' for '+dependecyOf:''));
+		_debug('| '.repeat(depth-1)+'@ RUN PROMISE'+(dependencyOf?' for '+dependencyOf:''));
 		if( depth >= 10 ) {
 			_debug('| '.repeat(depth)+'rejected by depth limit');
 			reject(' imports depth limit succeeded');
@@ -1492,7 +1210,7 @@ function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
 			reject(err);
 		})
 		.on('end', async function() {
-			_debug('| '.repeat(depth-1)+'@ END'+(dependecyOf?' for '+dependecyOf:''));
+			_debug('| '.repeat(depth-1)+'@ END'+(dependencyOf?' for '+dependencyOf:''));
 			//_debug('| '.repeat(depth-1)+'# treePath', treePath);
 			//_debug('| '.repeat(depth-1)+'# dependecyOf', dependecyOf);
 
@@ -1525,7 +1243,7 @@ function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
 					//onsole.log('# recursionResult', recursionResult);
 				}
 			}
-			_debug('| '.repeat(depth-1)+'@ RESOLVE'+(dependecyOf?' for '+dependecyOf:''));
+			_debug('| '.repeat(depth-1)+'@ RESOLVE'+(dependencyOf?' for '+dependencyOf:''));
 			resolve({
 				dependencies: dependencies,
 				deepDependenciesIndex: deepDependenciesIndex
@@ -1648,17 +1366,30 @@ gulp.task('add-watchers', async function () {
 	}));
 
 	// js
-	if( ! conf.dev_mode.js_bundle_no_watching ) {
-		watchers.push(gulp.watch(conf.js.bundle.watch, WATCH_OPTIONS, ['js-bundle']));
-		watchers.push(gulp.watch(conf.js.vendor.src, WATCH_OPTIONS, ['js-vendor-bundle']));
-	}
 	watchers.push(gulp.watch(conf.js.scripts, WATCH_OPTIONS, function(changed) {
 		return jsScriptsWatcher(changed);
-	}));
-
-
-
-	//done(); вызов done-callback-а не имеет смысла если используем async-функцию
+	}))
+	if( ! conf.dev_mode.js_bundle_no_watching ) {
+		watchers.push(gulp.watch(conf.js.bundle.watch, WATCH_OPTIONS, function(changed) {
+			let empty = true;
+			let rebuildBundle = undefined;
+			for (let bundleName in jsTools.bundles) {
+				if (jsTools.bundles.hasOwnProperty(bundleName)) {
+					empty = false;
+					let foundDep = jsTools.bundles[bundleName].deps.find((filePath) => filePath === changed.path);
+					if (foundDep) {
+						rebuildBundle = jsTools.bundles[bundleName];
+						break;
+					}
+				}
+			}
+			if (empty) {
+				return jsTools.buildJsBundles();
+			} else if (rebuildBundle) {
+				return jsTools.createBundleStream(rebuildBundle);
+			}
+		}));
+	}
 });
 gulp.task('remove-watchers', async function() {
 	precssDeepDependenciesIndex = null;
@@ -1678,7 +1409,7 @@ gulp.task('--begin-interactive-mode-task-action', function() {
 gulp.task('--finish-interactive-mode-task-action', function(done) {
 	isInteractiveMode = true;
 	switchBrowserSync(true);
-	browserSyncReload(done);
+	reloadBrowserSync(done);
 });
 
 /**
@@ -2022,7 +1753,7 @@ function showHelpHotKeys(done) {
                 Дабы произвести удаление или перемещение файлов и папок.
                 Это убережет процесс интерактивного режима от падения
                 в результате обращения watcher-ов к уже отсутствующим на ФС элементам.
-                Для повторного запуска нажимите "w".
+                Для повторного запуска нажмите "w".
 
         "r" - Более масштабная перегрузка watcher-ов включающая пересборку html, precss и js
               Это необходимо например потому, что тот же html зависит от состава файлов css-bundle-а.

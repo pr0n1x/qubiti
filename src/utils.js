@@ -1,4 +1,5 @@
-const Path = require('path');
+const Path = require('path')
+	,gutil = require('gulp-util');
 
 function substr(f_string, f_start, f_length) {
 	// Return part of a string
@@ -115,6 +116,12 @@ function parsePath(path) {
 	};
 }
 
+// "Проглатывает" ошибку, но выводит в терминал
+function swallowError(error) {
+	gutil.log(error);
+	this.emit('end');
+}
+
 
 module.exports.substr = substr;
 module.exports.getRelFilePath = getRelFilePath;
@@ -122,3 +129,4 @@ module.exports.defineReferenceProperty = defineReferenceProperty;
 module.exports.dereferencePlaceHolder = dereferencePlaceHolder;
 module.exports.parseArgAsBool = parseArgAsBool;
 module.exports.parsePath = parsePath;
+module.exports.swallowError = swallowError;
