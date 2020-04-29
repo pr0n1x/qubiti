@@ -11,7 +11,3 @@ global._ = {
 };
 
 test_vendor_1();
-
-
-
-
