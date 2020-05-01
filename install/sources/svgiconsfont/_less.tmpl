@@ -1,14 +1,17 @@
-<% _.each(glyphs, function(glyph) { %>@<%= fontName %>-<%= cssClass %>-<%= glyph.fileName %>: "\<%= glyph.codePoint %>";
+<%
+	const timestamp = (new Date()).getTime();
+	_.each(glyphs, function(glyph) {
+		%>@<%= fontName %>-<%= cssClass %>-<%= glyph.fileName %>: "\<%= glyph.codePoint %>";
 <% }); %>
 .-<%= fontName %>-fontface() {
 	@font-face {
 		font-family: "<%= fontName %>";
-		src: url('../<%= fontPath %>/<%= fontName %>.eot');
-		src: url('../<%= fontPath %>/<%= fontName %>.eot?#iefix') format('eot'),
-			url('../<%= fontPath %>/<%= fontName %>.woff2') format('woff2'),
-			url('../<%= fontPath %>/<%= fontName %>.woff') format('woff'),
-			url('../<%= fontPath %>/<%= fontName %>.ttf') format('truetype'),
-			url('../<%= fontPath %>/<%= fontName %>.svg#<%= fontName %>') format('svg');
+		src: url('../<%= fontPath %>/<%= fontName %>.eot?ts=<%=timestamp%>');
+		src: url('../<%= fontPath %>/<%= fontName %>.eot?ts=<%=timestamp%>#iefix') format('eot'),
+			 url('../<%= fontPath %>/<%= fontName %>.woff2?ts=<%=timestamp%>') format('woff2'),
+			 url('../<%= fontPath %>/<%= fontName %>.woff?ts=<%=timestamp%>') format('woff'),
+			 url('../<%= fontPath %>/<%= fontName %>.ttf?ts=<%=timestamp%>') format('truetype'),
+			 url('../<%= fontPath %>/<%= fontName %>.svg?ts=<%=timestamp%>#<%= fontName %>') format('svg');
 	}
 }
 
@@ -18,6 +21,7 @@
 		-moz-osx-font-smoothing: grayscale;
 	display: inline-block;
 	position: relative;
+	top: 0.1em;
 	font-style: normal;
 	font-weight: normal;
 	line-height: 1;
