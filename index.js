@@ -52,8 +52,8 @@ const
 	,ttf2eot = require('gulp-ttf2eot')
 	,ttf2woff = require('gulp-ttf2woff')
 	,ttf2woff2 = require('gulp-ttf2woff2')
-	//,through2 = require('through2')
-	//,nodeSassTildeImporter = require('node-sass-tilde-importer')
+	,through2 = require('through2')
+	// ,nodeSassTildeImporter = require('node-sass-tilde-importer')
 	,nodeSassTildeImporter = require('./src/nodeSassTildeImporter')
 
 	,utils = require('./src/utils')
@@ -572,21 +572,21 @@ function precssWatcher(changedFile, target) {
 			stream.pipe(tap(function(file) {
 				let filePath = file.path.replace(/\\/g, '/');
 				let precssDir = conf.curDir+'/'+conf.precss.main.base;
-				let relLessFilePath = null;
+				let relFilePath = null;
 				precssDir = precssDir
 					.replace(/\\/g, '/')
 					.replace(/\/\//g, '/');
 				if(filePath.indexOf(precssDir) !== 0) {
 					throw 'precss file out of configured precss dir: "'+filePath+'"';
 				}
-				relLessFilePath = conf.precss.main.dest+'/'+utils.substr(filePath, precssDir.length+1);
-				relLessFilePath = relLessFilePath.trim()
+				relFilePath = conf.precss.main.dest+'/'+utils.substr(filePath, precssDir.length+1);
+				relFilePath = relFilePath.trim()
 					.replace(/\/\//g, '/')
 					.replace(/\.(less|scss)$/, '.css');
 				if( null !== cssBundleFiles
-					&& cssBundleFiles.indexOf(relLessFilePath) !== -1
+					&& cssBundleFiles.indexOf(relFilePath) !== -1
 				) {
-					runSequence('css-bundle');
+					file.rebuildCssBundle = true;
 				}
 			}));
 			dest = conf.precss.main.dest;
@@ -616,7 +616,12 @@ function precssWatcher(changedFile, target) {
 			throw 'precss-watcher: wrong watcher target';
 	}
 
-	return precssCommonPipe(stream, dest, conf.debug ? 'precss watcher:' : '');
+	return precssCommonPipe(stream, dest, conf.debug ? 'precss watcher:' : '')
+		.pipe(tap(function(file) {
+			if (typeof file.rebuildCssBundle != 'undefined' && file.rebuildCssBundle) {
+				runSequence('css-bundle');
+			}
+		}));
 }
 
 /**
@@ -982,8 +987,10 @@ gulp.task('google-web-fonts', function() {
  */
 gulp.task('images', ['images:common', 'images:components']);
 gulp.task('images:common', function() {
+	let fileCount = 0;
+	const debugTitle = 'optimizing image: ';
+	const doneDebugTitle = 'optimized images: ';
 	return gulp.src(conf.images.common.src, {dot: true})
-		.pipe(conf.debug ? debug({title: 'optimizing image:'}) : gutil.noop())
 		.pipe(imagemin([
 			imagemin.optipng(conf.images.png),
 			imagemin.mozjpeg(conf.images.jpeg),
@@ -991,31 +998,48 @@ gulp.task('images:common', function() {
 			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
 		]))
 		.pipe(svg2z())
+		.pipe(conf.debug ? through2.obj((file, enc, cb) => {
+			const relBase = Path.relative(file.cwd, file.base);
+			gutil.log(debugTitle+gutil.colors.blue(`{ ${relBase} -> ${conf.images.common.dest} }/${file.relative}`));
+			fileCount++;
+			cb(null, file);
+		}, done => {
+			gutil.log(doneDebugTitle+gutil.colors.green(`${fileCount} items`));
+			done();
+		}) : gutil.noop())
 		.pipe(gulp.dest(conf.images.common.dest))
 		.pipe(createBrowserSyncStream());
 });
-gulp.task('images:components', function(done) {
+gulp.task('images:components', function() {
+	let fileCount = 0;
+	const debugTitle = 'optimizing component image: ';
+	const doneDebugTitle = 'optimized components images: ';
 	return gulp.src(conf.images.components.src, {dot: true, base: '.'})
-		.pipe(tap(function(file) {
+		.pipe(imagemin([
+			imagemin.optipng(conf.images.png),
+			imagemin.mozjpeg(conf.images.jpeg),
+			imagemin.gifsicle(conf.images.gifscale),
+			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
+		]))
+		.pipe(svg2z())
+		.pipe(conf.debug ? through2.obj(function(file, enc, cb) {
 			const pathParts = file.relative.split(`/${conf.images.components.srcFolder}/`);
+			fileCount++;
 			if (pathParts.length === 2) {
 				file.path = pathParts.join(`/${conf.images.components.destFolder}/`)
-				if (conf.debug) gutil.log('optimizing component image: ' + gutil.colors.blue(
+				if (conf.debug) gutil.log(debugTitle + gutil.colors.blue(
 					`${pathParts[0]}/{ ${conf.images.components.srcFolder}`
 					+' -> '
 					+`${conf.images.components.destFolder} }/${pathParts[1]}`
 				));
 			} else if (conf.debug) {
-				gutil.log('optimizing component image: ' + gutil.colors.blue(file.relative));
+				gutil.log(debugTitle + gutil.colors.blue(file.relative));
 			}
-		}))
-		.pipe(imagemin([
-			imagemin.optipng(conf.images.png),
-			imagemin.mozjpeg(conf.images.jpeg),
-			imagemin.gifsicle(conf.images.gifscale),
-			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
-		]))
-		.pipe(svg2z())
+			cb(null, file);
+		}, done => {
+			gutil.log(doneDebugTitle+gutil.colors.green(`${fileCount} items`));
+			done();
+		}) : gutil.noop())
 		.pipe(gulp.dest('.'))
 		.pipe(createBrowserSyncStream());
 });
@@ -1325,10 +1349,10 @@ gulp.task('add-watchers', async function () {
 
 	// precss
 	//watchers.push(gulp.watch(conf.precss.main.watchImports, WATCH_OPTIONS, ['precss-main-bundle']));
-	let allLessSrc = conf.precss.components.files.concat(conf.precss.main.files);
+	let allPrecssSrc = conf.precss.components.files.concat(conf.precss.main.files);
 	watchers.push(gulp.watch(conf.precss.main.watchImports, WATCH_OPTIONS, async function(changed) {
 		if(null === precssDeepDependenciesIndex) {
-			precssDeepDependenciesIndex = (await parsePreCssDependencies(allLessSrc)).deepDependenciesIndex;
+			precssDeepDependenciesIndex = (await parsePreCssDependencies(allPrecssSrc)).deepDependenciesIndex;
 			//onsole.log('precss dep tree parsed');
 		}
 		// else {
