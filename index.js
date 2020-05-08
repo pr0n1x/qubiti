@@ -47,8 +47,6 @@ const
 	,runSequence = require('run-sequence').use(gulp)
 	,vbuffer = require('vinyl-buffer')
 	,vsource = require('vinyl-source-stream')
-	,browserify = require('browserify')
-	,browserifyResolveShimify = require('resolve-shimify')
 	,minimatch = require('minimatch')
 	,rename = require('gulp-rename')
 	,ttf2eot = require('gulp-ttf2eot')
@@ -124,7 +122,7 @@ let conf = {
 		base: 'sources/html'
 		,pages: [
 			'@base/**/*.njk'
-			,'!@base/**/_*.njk'
+			,'!@base/**/_*{,/*,/**/*}.njk'
 		]
 		,components: [
 			 'components/*/*/{*,.*}/**/*.njk'
@@ -234,8 +232,18 @@ let conf = {
 		]
 	}
 	,images: {
-		src: [ 'sources/images/**/*.{jpeg,jpg,png,gif,ico,svg}', ]
-		,dest: 'images'
+		common: {
+			src: [ 'sources/images/**/*.{jpeg,jpg,png,gif,ico,svg}', ]
+			,dest: 'images'
+		}
+		,components: {
+			src: [
+				 'components/*/*/{*,.*}/img.src/**/*.{jpeg,jpg,png,gif,ico,svg}'
+				,'components/*/*/{*,.*}/*/*/{*,.*}/img.src/**/*.{jpeg,jpg,png,gif,ico,svg}'
+			]
+			,srcFolder: 'img.src'
+			,destFolder: 'images'
+		}
 		,png: { optimizationLevel: 3 }
 		,jpeg: { quality: 75, progressive: true }
 		,gifscale: { interlaced: true }
@@ -254,8 +262,7 @@ let conf = {
 	,webFonts: {
 		src: [
 			'sources/fonts/**/*.ttf'
-			,'!sources/js/**/_*.ttf'
-			,'!sources/js/**/_*/*.ttf'
+			,'!sources/fonts/**/_*{,/*,/**/*}.ttf'
 		],
 		dest: 'fonts'
 	}
@@ -269,8 +276,7 @@ let conf = {
 	,svgIconFont: {
 		src: [
 			'sources/svgiconsfont/**/*.svg'
-			,'!sources/svgiconsfont/**/_*.svg'
-			,'!sources/svgiconsfont/**/_*/*.svg'
+			,'!sources/svgiconsfont/**/_*/*{,/*,/**/*}.svg'
 		]
 		,formats: ['woff2', 'woff', 'ttf', 'eot', 'svg']
 		,template: 'sources/svgiconsfont/_@precss_lang.tmpl'
@@ -969,13 +975,14 @@ gulp.task('google-web-fonts', function() {
 });
 
 /**
- * Оптимизация картинок в папке img.src/ и копирование
+ * Оптимизация картинок в папке sources/images/ и копирование
  * оптимизированных в images/
  * @task {images}
  * @order {9}
  */
-gulp.task('images', function() {
-	return gulp.src(conf.images.src, {dot: true})
+gulp.task('images', ['images:common', 'images:components']);
+gulp.task('images:common', function() {
+	return gulp.src(conf.images.common.src, {dot: true})
 		.pipe(conf.debug ? debug({title: 'optimizing image:'}) : gutil.noop())
 		.pipe(imagemin([
 			imagemin.optipng(conf.images.png),
@@ -983,9 +990,33 @@ gulp.task('images', function() {
 			imagemin.gifsicle(conf.images.gifscale),
 			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
 		]))
-		// .pipe(imagemin())
 		.pipe(svg2z())
-		.pipe(gulp.dest(conf.images.dest))
+		.pipe(gulp.dest(conf.images.common.dest))
+		.pipe(createBrowserSyncStream());
+});
+gulp.task('images:components', function(done) {
+	return gulp.src(conf.images.components.src, {dot: true, base: '.'})
+		.pipe(tap(function(file) {
+			const pathParts = file.relative.split(`/${conf.images.components.srcFolder}/`);
+			if (pathParts.length === 2) {
+				file.path = pathParts.join(`/${conf.images.components.destFolder}/`)
+				if (conf.debug) gutil.log('optimizing component image: ' + gutil.colors.blue(
+					`${pathParts[0]}/{ ${conf.images.components.srcFolder}`
+					+' -> '
+					+`${conf.images.components.destFolder} }/${pathParts[1]}`
+				));
+			} else if (conf.debug) {
+				gutil.log('optimizing component image: ' + gutil.colors.blue(file.relative));
+			}
+		}))
+		.pipe(imagemin([
+			imagemin.optipng(conf.images.png),
+			imagemin.mozjpeg(conf.images.jpeg),
+			imagemin.gifsicle(conf.images.gifscale),
+			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
+		]))
+		.pipe(svg2z())
+		.pipe(gulp.dest('.'))
 		.pipe(createBrowserSyncStream());
 });
 

@@ -1,3 +1,4 @@
+'use strict';
 const Path = require('path')
 	,gutil = require('gulp-util');
 

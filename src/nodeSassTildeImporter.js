@@ -17,16 +17,16 @@ function resolve(targetUrl, source) {
 		return null;
 	}
 
+	const sourceFileExt = path.extname(source);
+
 	const filePath = path.resolve(packageRoot, 'node_modules', targetUrl);
 	const dirName = path.dirname(filePath);
 	const fileName = path.basename(filePath);
 	const fileExt = path.extname(fileName);
 
 	if (!fileExt && fs.existsSync(filePath)) {
-		if (   fs.existsSync(`${dirName}/${fileName}.scss`)
-			|| fs.existsSync(`${dirName}/_${fileName}.scss`)
-			|| fs.existsSync(`${dirName}/${fileName}.sass`)
-			|| fs.existsSync(`${dirName}/_${fileName}.sass`)
+		if (   fs.existsSync(`${dirName}/${fileName}${sourceFileExt}`)
+			|| fs.existsSync(`${dirName}/_${fileName}${sourceFileExt}`)
 		) {
 			return filePath;
 		}

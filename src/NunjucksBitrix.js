@@ -253,21 +253,15 @@ function replaceAssetsPlaceHolders(assets) {
 	})
 }
 
-function fixSlashes(strPath) {
-	return strPath
-		.replace('\\', '/')
-		.replace('///', '/')
-		.replace('//', '/')
-}
 function injectData(conf, cssBundleFiles) {
 	return data(function(file) {
 		const currentFile = utils.getRelFilePath(file.path, conf.curDir);
-		const currentDir = fixSlashes(Path.dirname(currentFile));
-		const layoutDocumentRoot = Path.relative('/'+currentDir, '/');
+		const currentDir = Path.relative('/'+conf.html.base, '/'+Path.dirname(currentFile));
+		const layoutDocumentRoot = Path.relative('/'+conf.html.dest+'/'+currentDir, '/');
 		const layoutSiteTemplatePath = layoutDocumentRoot;
-		const layoutSiteDir = fixSlashes(layoutDocumentRoot+'/'+conf.html.dest+'/');
-		const layoutImagesDir = fixSlashes(layoutSiteTemplatePath+'/'+conf.images.dest);
-		const layoutComponentsBase = fixSlashes(layoutSiteTemplatePath+'/components');
+		const layoutSiteDir = layoutDocumentRoot+'/'+conf.html.dest+'/';
+		const layoutImagesDir = layoutSiteTemplatePath+'/'+conf.images.common.dest;
+		const layoutComponentsBase = layoutSiteTemplatePath+'/components';
 		return {
 			PRODUCTION: conf.production,
 			CSS_BUNDLE_FILES: cssBundleFiles,
