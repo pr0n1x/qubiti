@@ -4,11 +4,9 @@
  *
  * известные баги:
  * 1. Если в компонентах нет ни одного файла style.(less|scss), то таск по сборке стилей будет падать
- * 2. При удалении файлов в интерактивном режиме, сервер скорее всего упадет.
- *    Просто заново запускаем и не забиваем себе голову.
- * 3. Если вести разработку в production-режиме, то hot-reload в браузере стилей будет
+ * 2. Если вести разработку в production-режиме, то hot-reload в браузере стилей будет
  *    отставать от реального состояния кода на один шаг. Одно сохранение. Связано это со сборкой css-bundle-файла.
- * 4. js-vendor-bundle упадет если не создана папка js
+ * 3. js-vendor-bundle упадет если не создана папка js
  */
 
 module.exports = function(gulp, currentTemplateDir) {
@@ -204,9 +202,11 @@ let conf = {
 				,'!@js_bundle_base/{vendor,modules}/**/*.{js,vue,jsx,jsm}'
 			]
 			,modules: [
-				'node_modules'
-				,'@js_bundle_base/vendor'
+				 '@js_bundle_base/vendor'
 				,'@js_bundle_base/modules'
+				,'sources/vendor'
+				,'sources/modules'
+				,'node_modules'
 			]
 		}
 		,scripts: [
@@ -248,6 +248,7 @@ let conf = {
 		,jpeg: { quality: 75, progressive: true }
 		,gifscale: { interlaced: true }
 		,svgo: { removeViewBox: true }
+		,svgz: true
 	}
 	,sprites: {
 		src: 'sprites'
@@ -557,14 +558,15 @@ function precssCommonPipe(stream, dest, debugTitle) {
 	return stream;
 }
 function precssWatcher(changedFile, target) {
-	let file = getRelFilePath(changedFile.path)
+	if (!fs.existsSync(changedFile.path)) {
+		return gutil.noop();
+	}
+	const file = getRelFilePath(changedFile.path)
 		,fileName = Path.basename(file)
-		,stream = null
-		,dest = null
-		,fileStat = fs.lstatSync(changedFile.path)
-	;
-	if( fileStat.isDirectory() ) {
-		return;
+		,fileStat = fs.lstatSync(changedFile.path);
+	let stream = null ,dest = null;
+	if (fileStat.isDirectory()) {
+		return gutil.noop();
 	}
 	switch(target) {
 		case 'main':
@@ -889,22 +891,25 @@ gulp.task('js-scripts', function(done) {
 	return stream.pipe(createBrowserSyncStream());
 });
 
-function jsScriptsWatcher(changedFile) {
-	let file = getRelFilePath(changedFile.path)
+function jsWatcher(changedFile) {
+	if (!fs.existsSync(changedFile.path)) {
+		return gutil.noop();
+	}
+	const file = getRelFilePath(changedFile.path)
 		,dest = Path.dirname(file)
 		,fileName = Path.basename(file)
 		,fileStat = fs.lstatSync(changedFile.path)
 	;
-	if( fileStat.isDirectory() ) {
-		return;
+	if (fileStat.isDirectory()) {
+		return gutil.noop();
 	}
-	if(conf.debug) gutil.log(
+	if (conf.debug) gutil.log(
 		'js script: '+gutil.colors.blue(
 			dest+'/{ '+fileName+' -> '+fileName.replace(/\.js/, '.min.js')+' }'
 		)
 	);
 	let stream = gulp.src(file);
-	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
+	if (conf.assets.min_js || conf.dev_mode.minify_useless_js) {
 		stream = jsTools.addMinificationToJsStream(stream, dest);
 	} else if(conf.debug) {
 		gutil.log(
@@ -997,7 +1002,7 @@ gulp.task('images:common', function() {
 			imagemin.gifsicle(conf.images.gifscale),
 			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
 		]))
-		.pipe(svg2z())
+		.pipe(conf.images.svgz ? svg2z() : gutil.noop())
 		.pipe(conf.debug ? through2.obj((file, enc, cb) => {
 			const relBase = Path.relative(file.cwd, file.base);
 			gutil.log(debugTitle+gutil.colors.blue(`{ ${relBase} -> ${conf.images.common.dest} }/${file.relative}`));
@@ -1021,7 +1026,7 @@ gulp.task('images:components', function() {
 			imagemin.gifsicle(conf.images.gifscale),
 			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
 		]))
-		.pipe(svg2z())
+		.pipe(conf.images.svgz ? svg2z() : gutil.noop())
 		.pipe(conf.debug ? through2.obj(function(file, enc, cb) {
 			const pathParts = file.relative.split(`/${conf.images.components.srcFolder}/`);
 			fileCount++;
@@ -1029,8 +1034,7 @@ gulp.task('images:components', function() {
 				file.path = pathParts.join(`/${conf.images.components.destFolder}/`)
 				if (conf.debug) gutil.log(debugTitle + gutil.colors.blue(
 					`${pathParts[0]}/{ ${conf.images.components.srcFolder}`
-					+' -> '
-					+`${conf.images.components.destFolder} }/${pathParts[1]}`
+					+` -> ${conf.images.components.destFolder} }/${pathParts[1]}`
 				));
 			} else if (conf.debug) {
 				gutil.log(debugTitle + gutil.colors.blue(file.relative));
@@ -1423,7 +1427,7 @@ gulp.task('add-watchers', async function () {
 
 	// js
 	watchers.push(gulp.watch(conf.js.scripts, WATCH_OPTIONS, function(changed) {
-		return jsScriptsWatcher(changed);
+		return jsWatcher(changed);
 	}))
 	if( ! conf.dev_mode.js_bundle_no_watching ) {
 		watchers.push(gulp.watch(conf.js.bundle.watch, WATCH_OPTIONS, function(changed) {
