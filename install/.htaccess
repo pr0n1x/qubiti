@@ -1,2 +1,7 @@
 AddType image/svg+xml .svg .svgz
 AddEncoding x-gzip .svgz
+
+RewriteCond %{REQUEST_FILENAME} (.+\.svg)$
+RewriteCond %{REQUEST_FILENAME}z -f [or]
+RewriteCond %{REQUEST_FILENAME}z -l
+RewriteRule (.*?)\.svg $1.svgz [R=301,NE,L]

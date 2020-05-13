@@ -58,6 +58,7 @@ const
 	,utils = require('./src/utils')
 	,NunjucksBitrix = require('./src/NunjucksBitrix')
 	,JsTools = require('./src/JsTools')
+	,createMiddlewareSvgz = require('./src/createMiddlewareSvgz')
 ;
 
 const browserSyncEmitter = new EventEmitter();
@@ -1935,7 +1936,7 @@ gulp.task('serve', function(done) {
  * виртуального хоста веб-сервера php. Удобно для тестирования
  * на мобильных устройствах, поскольку редко удается быстро настроить
  * wifi роутер для обработки доменов виртуальных хостов на машине разработчика.
- * Соответственно имеет смысл прокировать на отдельный порт localhost-а
+ * Соответственно имеет смысл прокидывать на отдельный порт localhost-а
  * @task {phpdev}
  * @order {15}
  */
@@ -1945,18 +1946,13 @@ gulp.task('phpdev', function(done) {
 	done();
 });
 
-function browserSyncSvgzMiddleware(req, res, next) {
-	if ('.svgz' === Path.extname(req.url)) {
-		res.setHeader("Content-Encoding", "gzip");
-	}
-	next();
-}
+
 
 gulp.task('run-browser-sync', function() {
 	// noinspection JSUnusedGlobalSymbols
 	browserSync.init({
 		...conf.browserSync,
-		middleware: browserSyncSvgzMiddleware
+		middleware: createMiddlewareSvgz(conf)
 	});
 });
 
