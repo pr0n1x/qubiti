@@ -9,7 +9,7 @@
  * 3. js-vendor-bundle упадет если не создана папка js
  */
 
-module.exports = function(gulp, currentTemplateDir) {
+module.exports = function(currentTemplateDir) {
 
 /** @const */
 const
@@ -18,6 +18,7 @@ const
 	//,glob = require('glob')
 	,extend = require('extend')
 	,Path = require('path')
+	,gulp = require('gulp')
 	,EventEmitter = require('events').EventEmitter
 	,decodeKeypress = require('decode-keypress')
 	,concat = require('gulp-concat')
