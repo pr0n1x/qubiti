@@ -993,60 +993,89 @@ gulp.task('google-web-fonts', function() {
  */
 gulp.task('images', ['images:common', 'images:components']);
 gulp.task('images:common', function() {
-	let fileCount = 0;
-	const debugTitle = 'optimizing image: ';
-	const doneDebugTitle = 'optimized images: ';
-	return gulp.src(conf.images.common.src, {dot: true})
-		.pipe(imagemin([
-			imagemin.optipng(conf.images.png),
-			imagemin.mozjpeg(conf.images.jpeg),
-			imagemin.gifsicle(conf.images.gifscale),
-			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
-		]))
-		.pipe(conf.images.svgz ? svg2z() : gutil.noop())
-		.pipe(conf.debug ? through2.obj((file, enc, cb) => {
+	function debug(debugTitle, doneDebugTitle) {
+		let fileCount = 0;
+		return through2.obj((file, enc, cb) => {
 			const relBase = Path.relative(file.cwd, file.base);
-			gutil.log(debugTitle+gutil.colors.blue(`{ ${relBase} -> ${conf.images.common.dest} }/${file.relative}`));
+			gutil.log(`${debugTitle}: `+gutil.colors.blue(
+				relBase !== conf.images.common.dest
+					? `{ ${relBase} -> ${conf.images.common.dest} }/${file.relative}`
+					: `${conf.images.common.dest}/${file.relative}`
+			));
 			fileCount++;
 			cb(null, file);
 		}, done => {
-			gutil.log(doneDebugTitle+gutil.colors.green(`${fileCount} items`));
+			gutil.log(`${doneDebugTitle}: `+gutil.colors.green(`${fileCount} items`));
 			done();
-		}) : gutil.noop())
-		.pipe(gulp.dest(conf.images.common.dest))
-		.pipe(createBrowserSyncStream());
+		})
+	}
+	let stream = gulp.src(conf.images.common.src, {dot: true})
+		// .pipe(imagemin([
+		// 	imagemin.optipng(conf.images.png),
+		// 	imagemin.mozjpeg(conf.images.jpeg),
+		// 	imagemin.gifsicle(conf.images.gifscale),
+		// 	imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
+		// ]))
+		.pipe(conf.debug ? debug(
+			'optimizing image',
+			'optimized images'
+		) : gutil.noop())
+		.pipe(gulp.dest(conf.images.common.dest));
+	if (conf.images.svgz) {
+		stream = stream.pipe(filter('**/{*,.*}/**/*.svg'))
+			.pipe(svg2z())
+			.pipe(conf.debug ? debug(
+				'compressing svg -> svgz',
+				'compressed svgz files'
+			) : gutil.noop())
+			.pipe(gulp.dest(conf.images.common.dest))
+	}
+	return stream.pipe(createBrowserSyncStream());
 });
 gulp.task('images:components', function() {
-	let fileCount = 0;
-	const debugTitle = 'optimizing component image: ';
-	const doneDebugTitle = 'optimized components images: ';
-	return gulp.src(conf.images.components.src, {dot: true, base: '.'})
-		.pipe(imagemin([
-			imagemin.optipng(conf.images.png),
-			imagemin.mozjpeg(conf.images.jpeg),
-			imagemin.gifsicle(conf.images.gifscale),
-			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
-		]))
-		.pipe(conf.images.svgz ? svg2z() : gutil.noop())
-		.pipe(conf.debug ? through2.obj(function(file, enc, cb) {
+	function fixPath(debugTitle, doneDebugTitle) {
+		let fileCount = 0;
+		return through2.obj(function(file, enc, cb) {
 			const pathParts = file.relative.split(`/${conf.images.components.srcFolder}/`);
 			fileCount++;
 			if (pathParts.length === 2) {
 				file.path = pathParts.join(`/${conf.images.components.destFolder}/`)
-				if (conf.debug) gutil.log(debugTitle + gutil.colors.blue(
+				if (conf.debug) gutil.log(`${debugTitle}: ` + gutil.colors.blue(
 					`${pathParts[0]}/{ ${conf.images.components.srcFolder}`
 					+` -> ${conf.images.components.destFolder} }/${pathParts[1]}`
 				));
 			} else if (conf.debug) {
-				gutil.log(debugTitle + gutil.colors.blue(file.relative));
+				gutil.log(`${debugTitle}: ` + gutil.colors.blue(file.relative));
 			}
 			cb(null, file);
 		}, done => {
-			gutil.log(doneDebugTitle+gutil.colors.green(`${fileCount} items`));
+			gutil.log(`${doneDebugTitle}: `+gutil.colors.green(`${fileCount} items`));
 			done();
-		}) : gutil.noop())
-		.pipe(gulp.dest('.'))
-		.pipe(createBrowserSyncStream());
+		})
+	}
+	let stream = gulp.src(conf.images.components.src, {dot: true, base: '.'})
+		.pipe(imagemin([
+			imagemin.optipng(conf.images.png),
+			imagemin.mozjpeg(conf.images.jpeg),
+			imagemin.gifsicle(conf.images.gifscale),
+			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
+		]))
+		.pipe(fixPath(
+			'optimizing component image',
+			'optimized components images'
+		))
+		.pipe(gulp.dest('.'));
+
+	if (conf.images.svgz) {
+		stream = stream.pipe(filter('**/{*,.*}/**/*.svg'))
+			.pipe(svg2z())
+			.pipe(fixPath(
+				'compressing component (svg -> svgz)',
+				'compressed svgz files'
+			))
+			.pipe(gulp.dest('.'));
+	}
+	return stream.pipe(createBrowserSyncStream());
 });
 
 /**
