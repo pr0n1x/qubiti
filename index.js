@@ -9,6 +9,19 @@
  * 3. js-vendor-bundle упадет если не создана папка js
  */
 
+function require_lazy(m) {
+	let module;
+	return new Proxy(function () {
+		if (!module) module = require(m);
+		return module.apply(this, arguments)
+	}, {
+		get: function (target, name) {
+			if (!module) module = require(m);
+			return module[name];
+		}
+	});
+}
+
 module.exports = function(currentTemplateDir) {
 
 /** @const */
@@ -20,38 +33,38 @@ const
 	,Path = require('path')
 	,gulp = require('gulp')
 	,EventEmitter = require('events').EventEmitter
-	,decodeKeypress = require('decode-keypress')
-	,concat = require('gulp-concat')
-	,postcss = require('gulp-postcss')
-	,autoprefixer = require('autoprefixer')
-	,cssnano = require('cssnano')
-	,debug = require('gulp-debug')
-	,filter = require('gulp-filter')
-	,googleWebFonts = require('gulp-google-webfonts')
-	,helpDoc = require('gulp-help-doc')
-	,iconfont = require('gulp-iconfont')
-	,iconfontCss = require('gulp-iconfont-css')
-	,imagemin = require('gulp-imagemin')
-	,svg2z = require('gulp-svg2z')
-	,less = require('gulp-less')
-	,sass = require('gulp-sass')
-	,nunjucksRender = require('gulp-nunjucks-render')
-	,nunjucksIncludeData = require('nunjucks-includeData')
-	,plumber = require('gulp-plumber')
-	,sourcemaps = require('gulp-sourcemaps')
-	,tap = require('gulp-tap')
-	,gutil = require('gulp-util')
-	,spritesmith = require('gulp.spritesmith')
-	,merge = require('merge-stream')
-	,runSequence = require('run-sequence').use(gulp)
-	,vbuffer = require('vinyl-buffer')
-	,vsource = require('vinyl-source-stream')
-	,minimatch = require('minimatch')
-	,rename = require('gulp-rename')
-	,ttf2eot = require('gulp-ttf2eot')
-	,ttf2woff = require('gulp-ttf2woff')
-	,ttf2woff2 = require('gulp-ttf2woff2')
-	,through2 = require('through2')
+	,decodeKeypress = require_lazy('decode-keypress')
+	,concat = require_lazy('gulp-concat')
+	,postcss = require_lazy('gulp-postcss')
+	,autoprefixer = require_lazy('autoprefixer')
+	,cssnano = require_lazy('cssnano')
+	,debug = require_lazy('gulp-debug')
+	,filter = require_lazy('gulp-filter')
+	,googleWebFonts = require_lazy('gulp-google-webfonts')
+	,helpDoc = require_lazy('gulp-help-doc')
+	,iconfont = require_lazy('gulp-iconfont')
+	,iconfontCss = require_lazy('gulp-iconfont-css')
+	,imagemin = require_lazy('gulp-imagemin')
+	,svg2z = require_lazy('gulp-svg2z')
+	,less = require_lazy('gulp-less')
+	,sass = require_lazy('gulp-sass')
+	,nunjucksRender = require_lazy('gulp-nunjucks-render')
+	,nunjucksIncludeData = require_lazy('nunjucks-includeData')
+	,plumber = require_lazy('gulp-plumber')
+	,sourcemaps = require_lazy('gulp-sourcemaps')
+	,tap = require_lazy('gulp-tap')
+	,gutil = require_lazy('gulp-util')
+	,spritesmith = require_lazy('gulp.spritesmith')
+	,merge = require_lazy('merge-stream')
+	,runSequence = require_lazy('run-sequence').use(gulp)
+	,vbuffer = require_lazy('vinyl-buffer')
+	,vsource = require_lazy('vinyl-source-stream')
+	,minimatch = require_lazy('minimatch')
+	,rename = require_lazy('gulp-rename')
+	,ttf2eot = require_lazy('gulp-ttf2eot')
+	,ttf2woff = require_lazy('gulp-ttf2woff')
+	,ttf2woff2 = require_lazy('gulp-ttf2woff2')
+	,through2 = require_lazy('through2')
 	// ,nodeSassTildeImporter = require('node-sass-tilde-importer')
 	,nodeSassTildeImporter = require('./src/nodeSassTildeImporter')
 
@@ -60,6 +73,8 @@ const
 	,JsTools = require('./src/JsTools')
 	,createMiddlewareSvgz = require('./src/createMiddlewareSvgz')
 ;
+
+
 
 const browserSyncEmitter = new EventEmitter();
 let browserSync = require('browser-sync').create(null, browserSyncEmitter);
@@ -840,9 +855,11 @@ gulp.task('--html-nunjucks', function() {
 			,ext: '.html'
 			,manageEnv: function(env) {
 				env.curDir = conf.curDir;
-				//onsole.log(env);
+				// noinspection JSUnresolvedFunction
 				env.addExtension('BitrixComponents', new NunjucksBitrix.ComponentTag(conf, njkAssets, env));
+				// noinspection JSUnresolvedFunction
 				env.addExtension('BitrixComponentAssetsCssPlaceHolder', new NunjucksBitrix.ComponentAssetsCssPlaceHolder());
+				// noinspection JSUnresolvedFunction
 				env.addExtension('BitrixComponentAssetsJsPlaceHolder', new NunjucksBitrix.ComponentAssetsJsPlaceHolder());
 				nunjucksIncludeData.install(env);
 			}
@@ -879,7 +896,7 @@ gulp.task('js-bundle', function() {
  * @task {js-scripts}
  * @order {6}
  */
-gulp.task('js-scripts', function(done) {
+gulp.task('js-scripts', function() {
 	let stream = gulp.src(conf.js.scripts, {dot: true, base: '.'});
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
 		stream = jsTools.addMinificationToJsStream(
@@ -1011,12 +1028,12 @@ gulp.task('images:common', function() {
 		})
 	}
 	let stream = gulp.src(conf.images.common.src, {dot: true})
-		// .pipe(imagemin([
-		// 	imagemin.optipng(conf.images.png),
-		// 	imagemin.mozjpeg(conf.images.jpeg),
-		// 	imagemin.gifsicle(conf.images.gifscale),
-		// 	imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
-		// ]))
+		.pipe(imagemin([
+			imagemin.optipng(conf.images.png),
+			imagemin.mozjpeg(conf.images.jpeg),
+			imagemin.gifsicle(conf.images.gifscale),
+			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
+		]))
 		.pipe(conf.debug ? debug(
 			'optimizing image',
 			'optimized images'

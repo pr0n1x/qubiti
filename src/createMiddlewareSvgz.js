@@ -38,7 +38,6 @@ module.exports = conf => {
 				};
 			}
 		} else if ('.svgz' === extname) {
-			process.nextTick(() => console.log('set gzip encoding for svgz'));
 			res.setHeader('Content-Encoding', 'gzip');
 		}
 		next();
