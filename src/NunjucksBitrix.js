@@ -131,11 +131,7 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 			throw 'component name not set';
 		}
 		if( 'string' != typeof(args.template) ) {
-			if( 'string' != typeof(args.tpl) ) {
-				//throw 'component template not set';
-				args.tpl = '.default';
-			}
-			args.template = args.tpl;
+			args.template = '.default';
 		}
 		args.parent = (typeof(args.parent) !== 'string') ? '' : args.parent;
 		let name = args.name.replace(/:/, '/');
@@ -144,18 +140,11 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 		if( 'string' == typeof(args.parent) && args.parent.length > 0 ) {
 			parent = args.parent+'/';
 		}
-		// noinspection JSUnresolvedVariable
-		let page = 'string' == typeof(args.complex_page)
-			? args.complex_page
-			: 'string' == typeof(args.cmpx_page)
-				? args.cmpx_page
-				: 'string' == typeof(args.cmp_page)
-					? args.cmp_page
-					: 'string' == typeof(args.cpx_page)
-						? args.cpx_page
-						:'string' == typeof(args.page)
-							? args.page
-							:'template';
+		let page = 'string' == typeof(args['complex_page'])
+			? args['complex_page']
+			:'string' == typeof(args['page'])
+				? args['page']
+				:'template';
 		let ctx = extend({}, context.ctx);
 		ctx.templateUrl = '@components/'+parent+name+'/'+template;
 		ctx.templatePath = ctx.templateUrl.replace(/@components/, 'components');
@@ -174,12 +163,10 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 		assets.add('js', 'script', ctx);
 		assets.add('css', 'style', ctx);
 
-		// add params and data
-		if( typeof(args.params) !== 'undefined' ) {
-			ctx.params = extend({}, args.params);
-		}
-		if( typeof(args.data) !== 'undefined' ) {
-			ctx.data = extend({}, args.data);
+		// add params
+		ctx.args = extend({}, args);
+		if (typeof ctx.args.params !== 'undefined') {
+			ctx.params = ctx.args.params;
 		}
 
 		// render bx_component
@@ -255,9 +242,9 @@ function replaceAssetsPlaceHolders(assets) {
 
 function injectData(conf, cssBundleFiles) {
 	return data(function(file) {
-		const currentFile = utils.getRelFilePath(file.path, conf.curDir);
-		const currentDir = Path.relative('/'+conf.html.base, '/'+Path.dirname(currentFile));
-		const layoutDocumentRoot = Path.relative('/'+conf.html.dest+'/'+currentDir, '/');
+		const currentFile = utils.getRelFilePath(file.path, `${conf.curDir}/${conf.html.base}`);
+		const currentDir = Path.dirname(currentFile);
+		const layoutDocumentRoot = Path.relative('/'+conf.html.dest+'/'+file.relative, '/');
 		const layoutSiteTemplatePath = layoutDocumentRoot;
 		const layoutSiteDir = layoutDocumentRoot+'/'+conf.html.dest+'/';
 		const layoutImagesDir = layoutSiteTemplatePath+'/'+conf.images.common.dest;
@@ -265,6 +252,7 @@ function injectData(conf, cssBundleFiles) {
 		return {
 			PRODUCTION: conf.production,
 			CSS_BUNDLE_FILES: cssBundleFiles,
+			HTML_SRC_BASE: conf.html.base,
 			__PAGE__: currentFile,
 			__PATH__: currentDir,
 			DOC_ROOT: layoutDocumentRoot,
