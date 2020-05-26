@@ -107,10 +107,10 @@ function getHotKeysWatcher(conf, state, runSequence) {
 				'--finish-interactive-mode-task-action', 'add-watchers'
 			);
 		});
-		keyListener.on('optimizeImages', function() {
+		keyListener.on('optimizeCommonImages', function() {
 			runSequence(
 				'--begin-interactive-mode-task-action', 'remove-watchers',
-				'images',
+				'images:common',
 				'--finish-interactive-mode-task-action', 'add-watchers'
 			);
 		});
