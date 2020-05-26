@@ -9,7 +9,9 @@
  * 3. js-vendor-bundle упадет если не создана папка js
  */
 
-function require_lazy(m) {
+module.exports = function(currentTemplateDir) {
+
+function requireLazy(m) {
 	let module;
 	return new Proxy(function () {
 		if (!module) module = require(m);
@@ -22,63 +24,65 @@ function require_lazy(m) {
 	});
 }
 
-module.exports = function(currentTemplateDir) {
-
 /** @const */
 const
-	os = require('os')
-	,fs = require('fs')
+	fs = require('fs')
 	//,glob = require('glob')
 	,extend = require('extend')
 	,Path = require('path')
 	,gulp = require('gulp')
 	,EventEmitter = require('events').EventEmitter
-	,decodeKeypress = require_lazy('decode-keypress')
-	,concat = require_lazy('gulp-concat')
-	,postcss = require_lazy('gulp-postcss')
-	,autoprefixer = require_lazy('autoprefixer')
-	,cssnano = require_lazy('cssnano')
-	,debug = require_lazy('gulp-debug')
-	,filter = require_lazy('gulp-filter')
-	,googleWebFonts = require_lazy('gulp-google-webfonts')
-	,helpDoc = require_lazy('gulp-help-doc')
-	,iconfont = require_lazy('gulp-iconfont')
-	,iconfontCss = require_lazy('gulp-iconfont-css')
-	,imagemin = require_lazy('gulp-imagemin')
-	,svg2z = require_lazy('gulp-svg2z')
-	,less = require_lazy('gulp-less')
-	,sass = require_lazy('gulp-sass')
-	,nunjucksRender = require_lazy('gulp-nunjucks-render')
-	,nunjucksIncludeData = require_lazy('nunjucks-includeData')
-	,plumber = require_lazy('gulp-plumber')
-	,sourcemaps = require_lazy('gulp-sourcemaps')
-	,tap = require_lazy('gulp-tap')
-	,gutil = require_lazy('gulp-util')
-	,spritesmith = require_lazy('gulp.spritesmith')
-	,merge = require_lazy('merge-stream')
-	,runSequence = require_lazy('run-sequence').use(gulp)
-	,vbuffer = require_lazy('vinyl-buffer')
-	,vsource = require_lazy('vinyl-source-stream')
-	,minimatch = require_lazy('minimatch')
-	,rename = require_lazy('gulp-rename')
-	,ttf2eot = require_lazy('gulp-ttf2eot')
-	,ttf2woff = require_lazy('gulp-ttf2woff')
-	,ttf2woff2 = require_lazy('gulp-ttf2woff2')
-	,through2 = require_lazy('through2')
+	,concat = requireLazy('gulp-concat')
+	,postcss = requireLazy('gulp-postcss')
+	,autoprefixer = requireLazy('autoprefixer')
+	,cssnano = requireLazy('cssnano')
+	,debug = requireLazy('gulp-debug')
+	,filter = requireLazy('gulp-filter')
+	,googleWebFonts = requireLazy('gulp-google-webfonts')
+	,helpDoc = requireLazy('gulp-help-doc')
+	,iconfont = requireLazy('gulp-iconfont')
+	,iconfontCss = requireLazy('gulp-iconfont-css')
+	,imagemin = requireLazy('gulp-imagemin')
+	,svg2z = requireLazy('gulp-svg2z')
+	,less = requireLazy('gulp-less')
+	,sass = requireLazy('gulp-sass')
+	,nunjucksRender = requireLazy('gulp-nunjucks-render')
+	,nunjucksIncludeData = requireLazy('nunjucks-includeData')
+	,plumber = requireLazy('gulp-plumber')
+	,sourcemaps = requireLazy('gulp-sourcemaps')
+	,tap = requireLazy('gulp-tap')
+	,gutil = requireLazy('gulp-util')
+	,spritesmith = requireLazy('gulp.spritesmith')
+	,merge = require('merge-stream')
+	,runSequence = requireLazy('run-sequence').use(gulp)
+	,vbuffer = requireLazy('vinyl-buffer')
+	,vsource = requireLazy('vinyl-source-stream')
+	,minimatch = requireLazy('minimatch')
+	,rename = requireLazy('gulp-rename')
+	,ttf2eot = requireLazy('gulp-ttf2eot')
+	,ttf2woff = requireLazy('gulp-ttf2woff')
+	,ttf2woff2 = requireLazy('gulp-ttf2woff2')
+	,through2 = requireLazy('through2')
 	// ,nodeSassTildeImporter = require('node-sass-tilde-importer')
 	,nodeSassTildeImporter = require('./src/nodeSassTildeImporter')
 
 	,utils = require('./src/utils')
-	,NunjucksBitrix = require('./src/NunjucksBitrix')
+	,nunjucksBitrix = require('./src/nunjucks_bitrix')
 	,JsTools = require('./src/JsTools')
 	,createMiddlewareSvgz = require('./src/createMiddlewareSvgz')
+	,hotKeys = requireLazy('./src/hot_keys')
 ;
 
 
 
 const browserSyncEmitter = new EventEmitter();
 let browserSync = require('browser-sync').create(null, browserSyncEmitter);
-let isInteractiveMode = false;
+const state = {
+	isInteractiveMode: false,
+	browserSyncReloadIsActive: true,
+	watchers: []
+};
+
 
 let conf = {
 	//noinspection JSUnresolvedVariable
@@ -372,34 +376,26 @@ if( typeof(gutil.env['js-bundle-no-watching']) != 'undefined' ) {
 const jsTools = new JsTools(gulp, conf, createBrowserSyncStream);
 
 
-let browserSyncTimeout = 0;
-// noinspection JSUnusedLocalSymbols
-function onTaskEndBrowserReload() {
-	clearTimeout(browserSyncTimeout);
-	browserSyncTimeout = setTimeout(browserSync.reload, 200);
-}
-
 function getRelFilePath(filePath) {
 	return utils.getRelFilePath(filePath, conf.curDir);
 }
 
-let browserSyncReloadIsActive = true;
-function switchBrowserSync(state) {
-	if( state instanceof Boolean ) {
-		browserSyncReloadIsActive = state;
+function switchBrowserSync(isActive) {
+	if( isActive instanceof Boolean ) {
+		state.browserSyncReloadIsActive = isActive;
 	}
 	else {
-		browserSyncReloadIsActive = !browserSyncReloadIsActive;
+		state.browserSyncReloadIsActive = !state.browserSyncReloadIsActive;
 	}
 }
 function createBrowserSyncStream() {
-	return browserSyncReloadIsActive
+	return state.browserSyncReloadIsActive
 		? browserSync.stream()
 		: gutil.noop()
 }
 
 function reloadBrowserSync(done) {
-	if( browserSyncReloadIsActive ) {
+	if( state.browserSyncReloadIsActive ) {
 		if( typeof(done) == 'function' ) {
 			//util.log(gutil.colors.red('browser-sync reload'));
 			// noinspection JSUnusedLocalSymbols
@@ -496,23 +492,6 @@ function precssCommonPipe(stream, dest, debugTitle) {
 			source: source,
 			fixed: resultSrc
 		});
-		// let prefix = 'src map: '+phase;
-		// gutil.log(prefix+':-----------');
-		// gutil.log(prefix+':                INPUT');
-		// gutil.log(prefix+':          dest:', dest);
-		// // gutil.log(prefix+':      src root:', file.sourceMap.sourceRoot);
-		// gutil.log(prefix+':     file.base:', file.base);
-		// gutil.log(prefix+':     file.path:', file.path);
-		// gutil.log(prefix+': file.relative:', file.relative);
-		// gutil.log(prefix+':        source:', source);
-		// gutil.log(prefix+':                RESULT');
-		// gutil.log(prefix+':          dest:', destFilePath);
-		// gutil.log(prefix+':           src:', srcFilePath);
-		// gutil.log(prefix+':    result src:', resultSrc);
-		// gutil.log(prefix+':');
-		// // gutil.log(prefix+': fixed source:');
-		// // gutil.log(prefix+':', file.fixedSources);
-		// gutil.log(prefix+':');
 		return resultSrc;
 	}
 
@@ -653,7 +632,7 @@ gulp.task('css-bundle', function() {
 
 	stream.add(parseCssBundleImportListAsync(function(bundleName, relBundleFilePath, cssBundleFiles, cssBundleFilesImport) {
 		if( conf.production
-			|| !isInteractiveMode
+			|| !state.isInteractiveMode
 			|| !conf.dev_mode.no_build_css_bundle_file
 		) {
 			if( cssBundleFilesImport.length > 0 ) {
@@ -711,7 +690,7 @@ gulp.task('css-bundle', function() {
 					.pipe(concat(bundleName+'.css'))
 					.pipe(
 						( conf.production
-							|| !isInteractiveMode
+							|| !state.isInteractiveMode
 							|| !conf.dev_mode.no_bsync_css_bundle_file
 						)
 						? createBrowserSyncStream()
@@ -740,7 +719,7 @@ gulp.task('css-bundle', function() {
 								.pipe(postcss([cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/})]))
 								.pipe(
 									( conf.production
-										|| !isInteractiveMode
+										|| !state.isInteractiveMode
 										|| !conf.dev_mode.no_bsync_css_bundle_file
 									)
 									? createBrowserSyncStream()
@@ -840,8 +819,9 @@ gulp.task('html', function(done) {
 
 let njkAssets = {};
 gulp.task('--html-nunjucks', function() {
+	// noinspection JSUnresolvedVariable
 	nunjucksRender.nunjucks.configure();
-	njkAssets = new NunjucksBitrix.ComponentsAssets(conf);
+	njkAssets = new nunjucksBitrix.ComponentsAssets(conf);
 	// noinspection JSUnusedGlobalSymbols
 	return gulp.src(conf.html.pages)
 		.pipe(plumber())
@@ -849,22 +829,22 @@ gulp.task('--html-nunjucks', function() {
 		.pipe(tap(function(file) {
 			njkAssets.currentPage = getRelFilePath(file.path);
 		}))
-		.pipe(NunjucksBitrix.injectData(conf, cssBundleFiles))
+		.pipe(nunjucksBitrix.injectData(conf, cssBundleFiles))
 		.pipe(nunjucksRender({
 			path: conf.curDir
 			,ext: '.html'
 			,manageEnv: function(env) {
 				env.curDir = conf.curDir;
 				// noinspection JSUnresolvedFunction
-				env.addExtension('BitrixComponents', new NunjucksBitrix.ComponentTag(conf, njkAssets, env));
+				env.addExtension('BitrixComponents', new nunjucksBitrix.ComponentTag(conf, njkAssets, env));
 				// noinspection JSUnresolvedFunction
-				env.addExtension('BitrixComponentAssetsCssPlaceHolder', new NunjucksBitrix.ComponentAssetsCssPlaceHolder());
+				env.addExtension('BitrixComponentAssetsCssPlaceHolder', new nunjucksBitrix.ComponentAssetsCssPlaceHolder());
 				// noinspection JSUnresolvedFunction
-				env.addExtension('BitrixComponentAssetsJsPlaceHolder', new NunjucksBitrix.ComponentAssetsJsPlaceHolder());
+				env.addExtension('BitrixComponentAssetsJsPlaceHolder', new nunjucksBitrix.ComponentAssetsJsPlaceHolder());
 				nunjucksIncludeData.install(env);
 			}
 		}))
-		.pipe(NunjucksBitrix.replaceAssetsPlaceHolders(njkAssets))
+		.pipe(nunjucksBitrix.replaceAssetsPlaceHolders(njkAssets))
 		.pipe(gulp.dest(conf.html.dest))
 		.on('end', function() { reloadBrowserSync(); })
 	;
@@ -1003,6 +983,7 @@ gulp.task('google-web-fonts', function() {
 		.pipe(gulp.dest(conf.googleWebFonts.dest));
 });
 
+
 /**
  * Оптимизация картинок в папке sources/images/ и копирование
  * оптимизированных в images/
@@ -1010,6 +991,15 @@ gulp.task('google-web-fonts', function() {
  * @order {9}
  */
 gulp.task('images', ['images:common', 'images:components']);
+function configuredImageMin() {
+	// noinspection JSUnresolvedFunction
+	return imagemin([
+		imagemin.optipng(conf.images.png),
+		imagemin.mozjpeg(conf.images.jpeg),
+		imagemin.gifsicle(conf.images.gifscale),
+		imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
+	]);
+}
 gulp.task('images:common', function() {
 	function debug(debugTitle, doneDebugTitle) {
 		let fileCount = 0;
@@ -1028,12 +1018,7 @@ gulp.task('images:common', function() {
 		})
 	}
 	let stream = gulp.src(conf.images.common.src, {dot: true})
-		.pipe(imagemin([
-			imagemin.optipng(conf.images.png),
-			imagemin.mozjpeg(conf.images.jpeg),
-			imagemin.gifsicle(conf.images.gifscale),
-			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
-		]))
+		.pipe(configuredImageMin())
 		.pipe(conf.debug ? debug(
 			'optimizing image',
 			'optimized images'
@@ -1072,12 +1057,7 @@ gulp.task('images:components', function() {
 		})
 	}
 	let stream = gulp.src(conf.images.components.src, {dot: true, base: '.'})
-		.pipe(imagemin([
-			imagemin.optipng(conf.images.png),
-			imagemin.mozjpeg(conf.images.jpeg),
-			imagemin.gifsicle(conf.images.gifscale),
-			imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
-		]))
+		.pipe(configuredImageMin())
 		.pipe(fixPath(
 			'optimizing component image',
 			'optimized components images'
@@ -1381,12 +1361,11 @@ gulp.task('test-precss-imports-tree', function() {
  * @task {watch}
  * @order {13}
  */
-let watchers = [];
 const WATCH_OPTIONS = {cwd: './'};
 let precssDeepDependenciesIndex = null;
 gulp.task('watch', function(done) {
-	isInteractiveMode = true;
-	if( watchers.length > 0 ) {
+	state.isInteractiveMode = true;
+	if( state.watchers.length > 0 ) {
 		runSequence('remove-watchers', 'css-bundle-parse-imports-list', 'add-watchers', 'watch-hotkeys', done);
 	}
 	else {
@@ -1397,12 +1376,12 @@ gulp.task('watch', function(done) {
 
 gulp.task('add-watchers', async function () {
 	// html
-	watchers.push(gulp.watch(conf.html.watch, WATCH_OPTIONS, ['html']));
+	state.watchers.push(gulp.watch(conf.html.watch, WATCH_OPTIONS, ['html']));
 
 	// precss
-	//watchers.push(gulp.watch(conf.precss.main.watchImports, WATCH_OPTIONS, ['precss-main-bundle']));
+	//state.watchers.push(gulp.watch(conf.precss.main.watchImports, WATCH_OPTIONS, ['precss-main-bundle']));
 	let allPrecssSrc = conf.precss.components.files.concat(conf.precss.main.files);
-	watchers.push(gulp.watch(conf.precss.main.watchImports, WATCH_OPTIONS, async function(changed) {
+	state.watchers.push(gulp.watch(conf.precss.main.watchImports, WATCH_OPTIONS, async function(changed) {
 		if(null === precssDeepDependenciesIndex) {
 			precssDeepDependenciesIndex = (await parsePreCssDependencies(allPrecssSrc)).deepDependenciesIndex;
 			//onsole.log('precss dep tree parsed');
@@ -1463,22 +1442,22 @@ gulp.task('add-watchers', async function () {
 			});
 		}
 	}));
-	watchers.push(gulp.watch(conf.precss.main.bundle, WATCH_OPTIONS, ['css-bundle']));
-	watchers.push(gulp.watch(conf.precss.main.files, WATCH_OPTIONS, function(changed) {
+	state.watchers.push(gulp.watch(conf.precss.main.bundle, WATCH_OPTIONS, ['css-bundle']));
+	state.watchers.push(gulp.watch(conf.precss.main.files, WATCH_OPTIONS, function(changed) {
 		precssDeepDependenciesIndex = null;
 		return precssWatcher(changed, 'main');
 	}));
-	watchers.push(gulp.watch(conf.precss.components.watch, WATCH_OPTIONS, function(changed) {
+	state.watchers.push(gulp.watch(conf.precss.components.watch, WATCH_OPTIONS, function(changed) {
 		precssDeepDependenciesIndex = null;
 		return precssWatcher(changed, 'components');
 	}));
 
 	// js
-	watchers.push(gulp.watch(conf.js.scripts, WATCH_OPTIONS, function(changed) {
+	state.watchers.push(gulp.watch(conf.js.scripts, WATCH_OPTIONS, function(changed) {
 		return jsWatcher(changed);
 	}))
 	if( ! conf.dev_mode.js_bundle_no_watching ) {
-		watchers.push(gulp.watch(conf.js.bundle.watch, WATCH_OPTIONS, function(changed) {
+		state.watchers.push(gulp.watch(conf.js.bundle.watch, WATCH_OPTIONS, function(changed) {
 			let empty = true;
 			let rebuildBundle = undefined;
 			for (let bundleName in jsTools.bundles) {
@@ -1502,20 +1481,20 @@ gulp.task('add-watchers', async function () {
 gulp.task('remove-watchers', async function() {
 	precssDeepDependenciesIndex = null;
 	// noinspection JSUnusedLocalSymbols
-	watchers.forEach(function(watcher, index) {
+	state.watchers.forEach(function(watcher, index) {
 		watcher.end();
 	});
-	watchers = [];
+	state.watchers = [];
 	//done(); нет смысла если используем async-функцию
 });
 
 gulp.task('--begin-interactive-mode-task-action', function() {
-	isInteractiveMode = false;
+	state.isInteractiveMode = false;
 	switchBrowserSync(false);
 });
 
 gulp.task('--finish-interactive-mode-task-action', function(done) {
-	isInteractiveMode = true;
+	state.isInteractiveMode = true;
 	switchBrowserSync(true);
 	reloadBrowserSync(done);
 });
@@ -1526,413 +1505,17 @@ gulp.task('--finish-interactive-mode-task-action', function(done) {
  * @task {watch-hotkeys}
  * @order {16}
  */
-gulp.task('watch-hotkeys', function() {
-
-	let keyListener = new KeyPressEmitter();
-
-	keyListener.on('showHotKeysHelp', function() {
-		runSequence('help-hk');
-	});
-	keyListener.on('showHelp', function() {
-		runSequence('help');
-	});
-	keyListener.on('reloadWatchers', function() {
-		if( watchers.length > 0 ) {
-			runSequence('remove-watchers', 'add-watchers');
-		}
-		else {
-			runSequence('add-watchers');
-		}
-	});
-	keyListener.on('removeWatchers', function() {
-		runSequence('remove-watchers');
-	});
-	keyListener.on('buildHtml', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'html',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildAllStyles', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'precss-main', 'precss-components',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildMainStyles', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'precss-main',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildMainStylesAndBundle', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'precss-main-bundle',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildAllStylesAndBundle', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'precss',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildComponentStyles', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'precss-components',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildCssBundle', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'css-bundle',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildJs', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'js',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildJsScripts', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'js-scripts',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildJsBundle', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'js-bundle',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildJsVendorBundle', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'js-vendor-bundle',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('optimizeImages', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'images',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildSprites', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'sprites',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('buildCsvIconsFont', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'svg-icons-font',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('downloadGoogleWebFonts', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'google-web-fonts',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('switchDebugMode', function() {
-		conf.debug = !conf.debug;
-		gutil.log(gutil.colors.magenta('Debug mode switched to "'+(conf.debug?'true':'false')+'"'))
-	});
-	keyListener.on('switchProductionMode', function() {
-		conf.production = !conf.production;
-		gutil.log(gutil.colors.magenta('Production mode switched to "'+(conf.production?'true':'false')+'"'));
-		gutil.log(gutil.colors.green('After production mode switch you should to do full rebuild [key "b"] to take effect.'));
-	});
-	keyListener.on('reloadAll', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'precss-components', 'js-scripts', 'html', 'add-watchers',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.on('build', function() {
-		runSequence(
-			'--begin-interactive-mode-task-action', 'remove-watchers',
-			'build',
-			'--finish-interactive-mode-task-action', 'add-watchers'
-		);
-	});
-	keyListener.start();
-});
-gulp.task('keys-debug', function() {
-	isInteractiveMode = true;
-	let keyListener = new KeyPressEmitter();
-	keyListener.debug = true;
-	keyListener.start();
-});
+gulp.task('watch-hotkeys', hotKeys.getHotKeysWatcher(conf, state, runSequence));
+gulp.task('keys-debug', hotKeys.getKeysDebugger(state));
 
 
-class KeyPressEmitter extends EventEmitter {
-
-	// keyAlt = '\u001b';
-	// key_w = '\u0017';
-	// // sequences tested in linux
-	// sequence_ctrl_alt_w = keyAlt+key_w;
-	// sequence_ctrl_r = '\u0012';
-	// sequence_ctrl_l = '\t';
-	// sequence_ctrl_s = '\u0013';
-
-	constructor() {
-		super();
-		this._debug = false;
-	}
-
-	start() {
-		//process.stdin.setEncoding('utf8');
-		process.stdin.setRawMode(true);
-		process.stdin.on('data', this.onData.bind(this));
-	}
-
-	onData(data) {
-		/**
-		 * @typedef {Object} DecodedKey
-		 * @property {string} name
-		 * @property {string} sequence
-		 * @property {boolean} shift
-		 * @property {boolean} meta
-		 * @property {boolean} ctrl
-		 */
-		/**
-		 * @type {DecodedKey}
-		 */
-		const key = decodeKeypress(data);
-
-		if( ( false === key.shift && key.name === 'q')
-			|| (key.ctrl && key.name === 'c')
-		) {
-			process.exit();
-		}
-		if(this.debug) {
-			console.log('decode keypress\n', key, data.toString());
-		}
-		else if( key.sequence === '\r' ) {
-			console.log();
-		}
-
-		if( key.name === 'f1' && false === key.shift
-			&& false === key.ctrl && false === key.meta
-		) {
-			gutil.log('Hot key [F1]: Show hot keys help');
-			this.emit('showHotKeysHelp');
-		}
-		else if( key.name === 'f2' && false === key.shift
-			&& false === key.ctrl && false === key.meta
-		) {
-			gutil.log('Hot key [F2]: Show help');
-			this.emit('showHelp');
-		}
-		else if( true === key.shift && key.name === 'w' ) {
-			gutil.log('Hot key [Shift+w]: Remove watchers');
-			this.emit('removeWatchers');
-		}
-		else if( false === key.shift && key.name === 'w' ) {
-			gutil.log('Hot key [w]: Reload watchers');
-			this.emit('reloadWatchers');
-		}
-		else if( false === key.shift && key.name === 'h' ) {
-			gutil.log('Hot key [h]: Build html');
-			this.emit('buildHtml');
-		}
-		else if( true === key.shift && key.name === 's' ) {
-			gutil.log('Hot key [Shift+s]: Build main styles and bundle');
-			this.emit('buildMainStylesAndBundle');
-		}
-		else if( false === key.shift && key.name === 's' ) {
-			gutil.log('Hot key [s]: Build main styles (w/o -bundle)');
-			this.emit('buildMainStyles');
-		}
-		else if( true === key.shift && key.name === 'a' ) {
-			gutil.log('Hot key [Shift+a]: Build all styles (main + bundle + components)');
-			this.emit('buildAllStylesAndBundle');
-		}
-		else if( false === key.shift && key.name === 'a' ) {
-			gutil.log('Hot key [Shift+a]: Build all styles (main + components)');
-			this.emit('buildAllStyles');
-		}
-		else if( true === key.shift && key.name === 'l' ) {
-			gutil.log('Hot key [l]: Build only bundle of main styles');
-			this.emit('buildCssBundle');
-		}
-		else if( false === key.shift && key.name === 'l' ) {
-			gutil.log('Hot key [Shift+l]: Build component styles');
-			this.emit('buildComponentStyles');
-		}
-		else if( false === key.shift && key.name === 'j' ) {
-			gutil.log('Hot key [j]: Build js-bundle');
-			this.emit('buildJsBundle');
-		}
-		else if( true === key.shift && key.name === 'j' ) {
-			gutil.log('Hot key [Shift+j]: Build js-vendor-bundle');
-			this.emit('buildJsVendorBundle');
-		}
-		else if( false === key.shift && key.name === 'k' ) {
-			gutil.log('Hot key [k]: Build js-scripts (w/o bundles)');
-			this.emit('buildJsScripts');
-		}
-		else if( true === key.shift && key.name === 'k' ) {
-			gutil.log('Hot key [Shift+k]: Build js-scripts and all bundles');
-			this.emit('buildJs');
-		}
-		else if( key.shift && key.name === 'i' && key.sequence === 'I' ) {
-			gutil.log('Hot key [Shift+i]: Build sprites');
-			this.emit('buildSprites');
-		}
-		else if( false === key.shift && key.name === 'i' && key.sequence === 'i' ) {
-			gutil.log('Hot key [i]: Optimize images');
-			this.emit('optimizeImages');
-		}
-		else if( false === key.shift && key.name === 'f' ) {
-			gutil.log('Hot key [f]: Build csv-icons-font');
-			this.emit('buildCsvIconsFont');
-		}
-		else if( false === key.shift && key.name === 'g' ) {
-			gutil.log('Hot key [g]: Download goole-web-fonts');
-			this.emit('downloadGoogleWebFonts');
-		}
-		else if( key.shift && key.name === 'd' && key.sequence === 'D' ) {
-			gutil.log('Hot key [Shift+d]: Switch debug mode');
-			this.emit('switchDebugMode');
-		}
-		else if( key.shift && key.name === 'p' && key.sequence === 'P' ) {
-			gutil.log('Hot key [Shift+p]: Switch production mode');
-			this.emit('switchProductionMode');
-		}
-		else if( false === key.shift && key.name === 'r' ) {
-			gutil.log('Hot key [r]: Reload components');
-			this.emit('reloadAll');
-		}
-		else if( false === key.shift && key.name === 'b' ) {
-			gutil.log('Hot key [b]: Full build');
-			this.emit('build');
-		}
-		// TODO: Дописать запуск разных задач, которые отсутствуют в watcher-ах типа спрайтов, картинок и пр.
-	}
-
-	set debug(value) {
-		this._debug = !!value;
-	}
-	get debug() {
-		return this._debug;
-	}
-}
-
-function showHelpHotKeys(done) {
-	console.log(`
-    Горячие клавиши как правло не содержат нажатий Ctrl или Alt
-    и срабатывают при нажатии непосредственно на одну целевую клавишу.
-    Будте аккуратны :)
-
-        "F1" - Вывести эту справку
-
-        "q" - Выход. Завершает интерактивный режим (watch|layout).
- "Ctrl + c" - То же что "q"
-
-        "w" - Перезагрузить watcher-ы. Это актуально потому, что gulp.watch()
-                не очень правильно обрабатывает добавление или удаление
-                файлов. Что порождает очень большую возьню с правильными glob-шаблонами,
-                которые будут корректно отрабатывать. Более того, используемая в Битриксе практика
-                именовать папки начиная с точки "." вообще исключает корректную работу.
-              Потому иногда надо просто перегрузить watcher-ы и вновь добавленные файлы будут учтены.
-
-"Shift + w" - Удалить watcher-ы,
-                Дабы произвести удаление или перемещение файлов и папок.
-                Это убережет процесс интерактивного режима от падения
-                в результате обращения watcher-ов к уже отсутствующим на ФС элементам.
-                Для повторного запуска нажмите "w".
-
-        "r" - Более масштабная перегрузка watcher-ов включающая пересборку html, precss и js
-              Это необходимо например потому, что тот же html зависит от состава файлов css-bundle-а.
-              При создании новых компонентов и шаблонов необходимо использовать именно этот вариант.
-
-"Shift + d" - Переключить debug-mode в противоположный.
-              Так же уравляется ключем. $ gulp some-task --dbg
-
-"Shift + p" - Переключить production-mode.
-              Так же управляется ключем. $ gulp some-task --production
-
-        "h" - Сборка njk-файлов в html. Аналог $ gulp html
-
-        "s" - Сборка основных стилей.
-              Аналог $ gulp precss-main
-"Shift + s" - Сборка основных стилей и их bundle-а
-              Аналог $ gulp precss-main-bundle
-
-        "a" - Сборка всех стилей (но без сборки bundle-а).
-              Аналог $ gulp precss-main && gulp precss-components
-"Shift + a" - Полный сборка всех стилей: компоненты, основные стили + bundle.
-              Аналог $ gulp precss
-
-        "l" - Соберет только precss-файлы компонентов (component/ns/name/tpl/style.(less|scss)).
-              Аналог $ gulp precss-components
-
-"Shift + l" - Сборка только css-bundle-а.
-              Аналог $ gulp css-bundle
-
-        "j" - Сборка js-bundle(ов)
-              Аналог $ gulp js-bundle
-              из js/src/_<bundle_name>.js -> js/bundle.<bundle_name[.min].js
-              Как bundle один js/src/bundle.index.js -> js/bundle.index[.min].js
-              <bundle_name> не может значение "vendor"
-"Shift + j" - Сборка js-vendor-bundle(а)
-              Аналог $ gulp js-vendor-bundle
-              из js/vendor/bundle.vendor.js -> js/bundle.vendor[.min].js
-
-        "k" - Обработка всех скриптов кроме js-bundle-ов.
-              Чаще всего используется для файлов script.js в компонентах
-              Аналог $ gulp js-scripts
-"Shift + k" - Полная обработка js-файлов в т.ч. создание js-bundle-ов
-              Аналог $ gulp js
-
-        "i" - Минификация картинок в папке img.src/ с перемещением в images/
-              Аналог $ gulp images
-
-"Shift + i" - Производит сборку спрайтов.
-              Аналог $ gulp sprites
-
-        "f" - Сборка svg-файлов в иконочный шрифт
-              Аналог $ gulp svg-icons-font
-
-        "g" - Загрузка шрифтов google-web-fonts (fonts.google.com)
-              Аналог $ gulp google-web-fonts
-              Загрузка повлечет за собой создание precss-файлов, на которые
-              настроен watcher, соответственно будут пересобраны все precss-файлы $ gulp precss
-
-        "b" - Полная сборка проекта. Аналог $ gulp build
-
-`);
-	done();
-}
 /**
  * Вывести справки по горячим клавишам интерактивного режима
  * @task {help-hk}
  * @order {17}
  */
-gulp.task('help-hk', showHelpHotKeys);
-gulp.task('help-hotkeys', showHelpHotKeys);
-
+gulp.task('help-hk', hotKeys.showHelpHotKeys);
+gulp.task('help-hotkeys', hotKeys.showHelpHotKeys);
 
 
 /**
@@ -1962,7 +1545,6 @@ gulp.task('phpdev', function(done) {
 	runSequence('watch', 'run-lamp-proxy');
 	done();
 });
-
 
 
 gulp.task('run-browser-sync', function() {
