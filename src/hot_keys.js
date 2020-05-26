@@ -249,10 +249,19 @@ function showHelpHotKeys(done) {
 "Shift + k" - Полная обработка js-файлов в т.ч. создание js-bundle-ов
               Аналог $ gulp js
 
-        "i" - Минификация картинок в папке img.src/ с перемещением в images/
+    "Alt+i" - Минификация картинок в папке source/images
+              с перемещением оптимизированных в images/
+              Аналог $ gulp images:common
+
+  "Shift+i" - Минификация картинок в папках компонентов
+              картинки из img.src/ оптимизируются и сохраняются в images/
+              (пр.: components/bitrix/news.list/.default/{img.src -> images}/rel/path/to/bg.png)
+              Аналог $ gulp images:components
+
+        "i" - Минификация всех картинок (общих и компонентов)
               Аналог $ gulp images
 
-"Shift + i" - Производит сборку спрайтов.
+        "u" - Производит сборку спрайтов.
               Аналог $ gulp sprites
 
         "f" - Сборка svg-файлов в иконочный шрифт
