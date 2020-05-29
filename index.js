@@ -11,14 +11,20 @@
 
 module.exports = function(currentTemplateDir) {
 
-function requireLazy(m) {
+function loadLazy(m) {
 	let module;
 	return new Proxy(function () {
-		if (!module) module = require(m);
-		return module.apply(this, arguments)
+		if (!module) {
+			if (typeof m === 'function') module = m();
+			else module = require(m);
+		}
+		return module.apply(this, arguments);
 	}, {
 		get: function (target, name) {
-			if (!module) module = require(m);
+			if (!module) {
+				if (typeof m === 'function') module = m();
+				else module = require(m);
+			}
 			return module[name];
 		}
 	});
@@ -32,37 +38,37 @@ const
 	,Path = require('path')
 	,gulp = require('gulp')
 	,EventEmitter = require('events').EventEmitter
-	,concat = requireLazy('gulp-concat')
-	,postcss = requireLazy('gulp-postcss')
-	,autoprefixer = requireLazy('autoprefixer')
-	,cssnano = requireLazy('cssnano')
-	,debug = requireLazy('gulp-debug')
-	,filter = requireLazy('gulp-filter')
-	,googleWebFonts = requireLazy('gulp-google-webfonts')
-	,helpDoc = requireLazy('gulp-help-doc')
-	,iconfont = requireLazy('gulp-iconfont')
-	,iconfontCss = requireLazy('gulp-iconfont-css')
-	,imagemin = requireLazy('gulp-imagemin')
-	,svg2z = requireLazy('gulp-svg2z')
-	,less = requireLazy('gulp-less')
-	,sass = requireLazy('gulp-sass')
-	,nunjucksRender = requireLazy('gulp-nunjucks-render')
-	,nunjucksIncludeData = requireLazy('nunjucks-includeData')
-	,plumber = requireLazy('gulp-plumber')
-	,sourcemaps = requireLazy('gulp-sourcemaps')
-	,tap = requireLazy('gulp-tap')
-	,gutil = requireLazy('gulp-util')
-	,spritesmith = requireLazy('gulp.spritesmith')
-	,merge = require('merge-stream')
-	,runSequence = requireLazy('run-sequence').use(gulp)
-	,vbuffer = requireLazy('vinyl-buffer')
-	,vsource = requireLazy('vinyl-source-stream')
-	,minimatch = requireLazy('minimatch')
-	,rename = requireLazy('gulp-rename')
-	,ttf2eot = requireLazy('gulp-ttf2eot')
-	,ttf2woff = requireLazy('gulp-ttf2woff')
-	,ttf2woff2 = requireLazy('gulp-ttf2woff2')
-	,through2 = requireLazy('through2')
+	,concat = loadLazy(() => require('gulp-concat'))
+	,postcss = loadLazy(() => require('gulp-postcss'))
+	,autoprefixer = loadLazy(() => require('autoprefixer'))
+	,cssnano = loadLazy(() => require('cssnano'))
+	,debug = loadLazy(() => require('gulp-debug'))
+	,filter = loadLazy(() => require('gulp-filter'))
+	,googleWebFonts = loadLazy(() => require('gulp-google-webfonts'))
+	,helpDoc = loadLazy(() => require('gulp-help-doc'))
+	,iconfont = loadLazy(() => require('gulp-iconfont'))
+	,iconfontCss = loadLazy(() => require('gulp-iconfont-css'))
+	,imagemin = loadLazy(() => require('gulp-imagemin'))
+	,svg2z = loadLazy(() => require('gulp-svg2z'))
+	,less = loadLazy(() => require('gulp-less'))
+	,sass = loadLazy(() => require('gulp-sass'))
+	,nunjucksRender = loadLazy(() => require('gulp-nunjucks-render'))
+	,nunjucksIncludeData = loadLazy(() => require('nunjucks-includeData'))
+	,plumber = loadLazy(() => require('gulp-plumber'))
+	,sourcemaps = loadLazy(() => require('gulp-sourcemaps'))
+	,tap = loadLazy(() => require('gulp-tap'))
+	,gutil = loadLazy(() => require('gulp-util'))
+	,spritesmith = loadLazy(() => require('gulp.spritesmith'))
+	,merge = loadLazy(() => require('merge-stream'))
+	,runSequence = loadLazy(() => require('run-sequence').use(gulp))
+	,vbuffer = loadLazy(() => require('vinyl-buffer'))
+	,vsource = loadLazy(() => require('vinyl-source-stream'))
+	,minimatch = loadLazy(() => require('minimatch'))
+	,rename = loadLazy(() => require('gulp-rename'))
+	,ttf2eot = loadLazy(() => require('gulp-ttf2eot'))
+	,ttf2woff = loadLazy(() => require('gulp-ttf2woff'))
+	,ttf2woff2 = loadLazy(() => require('gulp-ttf2woff2'))
+	,through2 = loadLazy(() => require('through2'))
 	// ,nodeSassTildeImporter = require('node-sass-tilde-importer')
 	,nodeSassTildeImporter = require('./src/nodeSassTildeImporter')
 
@@ -70,7 +76,8 @@ const
 	,nunjucksBitrix = require('./src/nunjucks_bitrix')
 	,JsTools = require('./src/JsTools')
 	,createMiddlewareSvgz = require('./src/createMiddlewareSvgz')
-	,hotKeys = requireLazy('./src/hot_keys')
+	,hotKeys = loadLazy('./src/hot_keys')
+	,getFilteredStream = loadLazy('./src/getFilteredStream')
 ;
 
 
@@ -371,7 +378,6 @@ if( typeof(gutil.env['dev-no-build-css-bundle-file']) != 'undefined' ) {
 if( typeof(gutil.env['js-bundle-no-watching']) != 'undefined' ) {
 	conf.dev_mode.js_bundle_no_watching = utils.parseArgAsBool(gutil.env['js-bundle-no-watching']);
 }
-
 
 const jsTools = new JsTools(gulp, conf, createBrowserSyncStream);
 
@@ -983,14 +989,13 @@ gulp.task('google-web-fonts', function() {
 		.pipe(gulp.dest(conf.googleWebFonts.dest));
 });
 
-
 /**
  * Оптимизация картинок в папке sources/images/ и копирование
  * оптимизированных в images/
  * @task {images}
  * @order {9}
  */
-gulp.task('images', ['images:common', 'images:components']);
+gulp.task('images', ['images:main', 'images:components']);
 function configuredImageMin() {
 	// noinspection JSUnresolvedFunction
 	return imagemin([
@@ -1000,7 +1005,7 @@ function configuredImageMin() {
 		imagemin.svgo({ plugins: [ { removeViewBox: conf.images.svgo.removeViewBox } ] })
 	]);
 }
-gulp.task('images:common', function() {
+gulp.task('images:main', function() {
 	function debug(debugTitle, doneDebugTitle) {
 		let fileCount = 0;
 		return through2.obj((file, enc, cb) => {
@@ -1018,6 +1023,7 @@ gulp.task('images:common', function() {
 		})
 	}
 	let stream = gulp.src(conf.images.common.src, {dot: true})
+		.pipe(getFilteredStream(gutil.env['filter']))
 		.pipe(configuredImageMin())
 		.pipe(conf.debug ? debug(
 			'optimizing image',
@@ -1057,6 +1063,7 @@ gulp.task('images:components', function() {
 		})
 	}
 	let stream = gulp.src(conf.images.components.src, {dot: true, base: '.'})
+		.pipe(getFilteredStream(gutil.env['filter']))
 		.pipe(configuredImageMin())
 		.pipe(fixPath(
 			'optimizing component image',

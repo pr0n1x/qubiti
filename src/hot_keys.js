@@ -110,7 +110,7 @@ function getHotKeysWatcher(conf, state, runSequence) {
 		keyListener.on('optimizeCommonImages', function() {
 			runSequence(
 				'--begin-interactive-mode-task-action', 'remove-watchers',
-				'images:common',
+				'images:main',
 				'--finish-interactive-mode-task-action', 'add-watchers'
 			);
 		});
@@ -251,7 +251,7 @@ function showHelpHotKeys(done) {
 
     "Alt+i" - Минификация картинок в папке source/images
               с перемещением оптимизированных в images/
-              Аналог $ gulp images:common
+              Аналог $ gulp images:main
 
   "Shift+i" - Минификация картинок в папках компонентов
               картинки из img.src/ оптимизируются и сохраняются в images/
