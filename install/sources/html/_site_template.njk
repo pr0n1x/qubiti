@@ -22,17 +22,17 @@
 </head>
 
 <body>
-	<div id="site" class="site">
+	<div id="root" class="root">
 		{% block header %}
-			<header class="main-header">
+			<header class="root__header root-header">
 				<div class="container">
 
 				</div><!-- .container -->
 			</header>
 		{% endblock %}
-		<main id="main" class="site__main site-main" role="main">
+		<main id="main" class="root__main root-main" role="main">
 			{% block main %}
-				<section class="site-main__content container">
+				<section class="root-main__content container">
 					{% block h1 %}<h1>{{ title }}</h1>{% endblock %}
 					{% block breadcrumb %}{% endblock %}
 					{% block content %}{% endblock %}
@@ -40,12 +40,12 @@
 			{% endblock %}
 		</main>
 		{% block footer %}
-			<footer class="site__footer">
+			<footer class="root__footer root-footer">
 				{% bx_component name="layout:footer" %}
 			</footer>
 		{% endblock %}
 
-	</div><!-- /.site -->
+	</div><!-- /.root -->
 	{% block js %}
 		{% if PRODUCTION %}
 			<script src="{{ SITE_TEMPLATE_PATH }}/js/bundle.vendor.min.js"></script>
