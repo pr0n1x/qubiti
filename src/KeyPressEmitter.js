@@ -93,28 +93,26 @@ class KeyPressEmitter extends EventEmitter {
 			gutil.log('Hot key [a]: Build all styles (main + components)');
 			this.emit('buildAllStyles');
 		}
-		else if ('l' === key.name && key.shift === true) {
-			gutil.log('Hot key [l]: Build only bundle of main styles');
+		else if ('k' === key.name && key.shift === false) {
+			gutil.log('Hot key [k]: Build only bundle of main styles');
 			this.emit('buildCssBundle');
 		}
 		else if ('l' === key.name && key.shift === false) {
-			gutil.log('Hot key [Shift+l]: Build component styles');
+			gutil.log('Hot key [l]: Build component styles');
 			this.emit('buildComponentStyles');
 		}
-		else if ('j' === key.name && key.shift === false) {
-			gutil.log('Hot key [j]: Build js-bundle');
+		else if ('j' === key.name && 'j' === key.sequence && key.shift === false) {
+			gutil.log('Hot key [j]: Build js-bundles');
 			this.emit('buildJsBundle');
 		}
-		else if ('j' === key.name && key.shift === true) {
-			gutil.log('Hot key [Shift+j]: Build js-vendor-bundle');
-			this.emit('buildJsVendorBundle');
-		}
-		else if ('k' === key.name && key.shift === false) {
-			gutil.log('Hot key [k]: Build js-scripts (w/o bundles)');
+		else if ('j' === key.name && 'J' === key.sequence && key.shift === true) {
+			gutil.log('Hot key [Shift+j]: Build js-scripts (w/o bundles)');
 			this.emit('buildJsScripts');
 		}
-		else if ('k' === key.name && key.shift === true) {
-			gutil.log('Hot key [Shift+k]: Build js-scripts and all bundles');
+		else if ('j' === key.name && '\u001bj' === key.sequence
+			&& key.shift === false && key.meta === true
+		) {
+			gutil.log('Hot key [Alt+j]: Build js-scripts and all bundles');
 			this.emit('buildJs');
 		}
 		else if ('u' === key.name && 'u' === key.sequence && key.shift === false) {

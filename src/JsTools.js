@@ -116,11 +116,6 @@ class JsTools {
 		}
 		return stream
 			.pipe(plumber())
-			.pipe(tap(function(file) {
-				if( typeof(debugTitle) == 'string' && debugTitle.length > 0 ) {
-					gutil.log(debugTitle);
-				}
-			}))
 			.pipe(sourcemaps.init({loadMaps: true}))
 			.pipe(uglify())
 			.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())

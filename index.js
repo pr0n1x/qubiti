@@ -1,14 +1,4 @@
 'use strict';
-/**
- * Сборщик верстки для шаблонов Битрикс
- *
- * известные баги:
- * 1. Если в компонентах нет ни одного файла style.(less|scss), то таск по сборке стилей будет падать
- * 2. Если вести разработку в production-режиме, то hot-reload в браузере стилей будет
- *    отставать от реального состояния кода на один шаг. Одно сохранение. Связано это со сборкой css-bundle-файла.
- * 3. js-vendor-bundle упадет если не создана папка js
- */
-
 module.exports = function(currentTemplateDir) {
 
 function loadLazy(m) {
@@ -134,9 +124,9 @@ let conf = {
 		// Иногда разумно использовать такие плагины browserify
 		// как hmr и/или watchify, соответственно для избежания всяких гонок,
 		// даем возможность вырубить gulp-watcher для js-bundle-ов.
-		// Да и вообще hmr и watchify для сборки именно js-bunlde-ов
+		// Да и вообще hmr и watchify для сборки именно js-bundle-ов
 		// будут в разы (если не в 10-ки раз) быстрее.
-		js_bundle_no_watching: false
+		js_bundles_no_watching: false
 	}
 	,browserSync: {
 		server: './'
@@ -375,8 +365,8 @@ if( typeof(gutil.env['dev-no-build-css-bundle-file']) != 'undefined' ) {
 	conf.dev_mode.no_build_css_bundle_file = utils.parseArgAsBool(gutil.env['dev-no-build-css-bundle-file']);
 }
 
-if( typeof(gutil.env['js-bundle-no-watching']) != 'undefined' ) {
-	conf.dev_mode.js_bundle_no_watching = utils.parseArgAsBool(gutil.env['js-bundle-no-watching']);
+if( typeof(gutil.env['js-bundles-no-watching']) != 'undefined' ) {
+	conf.dev_mode.js_bundles_no_watching = utils.parseArgAsBool(gutil.env['js-bundles-no-watching']);
 }
 
 const jsTools = new JsTools(gulp, conf, createBrowserSyncStream);
@@ -863,17 +853,17 @@ gulp.task('--html-nunjucks', function() {
  * @order {5}
  */
 gulp.task('js', function(done) {
-	runSequence(['js-bundle', 'js-scripts'], done);
+	runSequence(['js-bundles', 'js-scripts'], done);
 });
 
 
 
 /**
  * Сборка скриптов из src в bundle
- * @task {js-bundle}
+ * @task {js-bundles}
  * @order {7}
  */
-gulp.task('js-bundle', function() {
+gulp.task('js-bundles', function() {
 	return jsTools.buildJsBundles();
 });
 
@@ -1225,7 +1215,7 @@ gulp.task('build', function(done) {
 		'precss-main',
 		'css-bundle',
 		'precss-components',
-		'js-bundle',
+		'js-bundles',
 		'js-scripts',
 		'--html-nunjucks',
 		done

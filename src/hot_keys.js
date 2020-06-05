@@ -89,14 +89,7 @@ function getHotKeysWatcher(conf, state, runSequence) {
 		keyListener.on('buildJsBundle', function() {
 			runSequence(
 				'--begin-interactive-mode-task-action', 'remove-watchers',
-				'js-bundle',
-				'--finish-interactive-mode-task-action', 'add-watchers'
-			);
-		});
-		keyListener.on('buildJsVendorBundle', function() {
-			runSequence(
-				'--begin-interactive-mode-task-action', 'remove-watchers',
-				'js-vendor-bundle',
+				'js-bundles',
 				'--finish-interactive-mode-task-action', 'add-watchers'
 			);
 		});
@@ -184,96 +177,61 @@ function getKeysDebugger(state) {
 
 function showHelpHotKeys(done) {
 	console.log(`
-    Горячие клавиши как правло не содержат нажатий Ctrl или Alt
-    и срабатывают при нажатии непосредственно на одну целевую клавишу.
-    Будьте аккуратны :)
-
-        "F1" - Вывести эту справку
-
-        "q" - Выход. Завершает интерактивный режим (watch|layout).
- "Ctrl + c" - То же что "q"
-
-        "w" - Перезагрузить watcher-ы. Это актуально потому, что gulp.watch()
-                не очень правильно обрабатывает добавление или удаление
-                файлов. Что порождает очень большую возьню с правильными glob-шаблонами,
-                которые будут корректно отрабатывать. Более того, используемая в Битриксе практика
-                именовать папки начиная с точки "." вообще исключает корректную работу.
-              Потому иногда надо просто перегрузить watcher-ы и вновь добавленные файлы будут учтены.
-
-"Shift + w" - Удалить watcher-ы,
-                Дабы произвести удаление или перемещение файлов и папок.
-                Это убережет процесс интерактивного режима от падения
-                в результате обращения watcher-ов к уже отсутствующим на ФС элементам.
-                Для повторного запуска нажмите "w".
-
-        "r" - Более масштабная перегрузка watcher-ов включающая пересборку html, precss и js
+       [F1] - Вывести эту справку
+        [q] - Выход. Завершает интерактивный режим.
+ [Ctrl + c] - Выход. Аналог [q].
+        [w] - Перезагрузить watcher-ы. Полезно при добавлении новых файлов / компонентов,
+              о которых gulp.watch пока не знает.
+[Shift + w] - Удалить watcher-ы, дабы произвести удаление или перемещение файлов и папок.
+              Полезно при активном перестроении структуры файлов и папок, когда
+              gulp.watch запускает очень много сборок при таких действиях.
+              Для повторного запуска нажмите "w".
+        [r] - Более масштабная перегрузка watcher-ов включающая пересборку html, precss и js
               Это необходимо например потому, что тот же html зависит от состава файлов css-bundle-а.
               При создании новых компонентов и шаблонов необходимо использовать именно этот вариант.
-
-"Shift + d" - Переключить debug-mode в противоположный.
-              Так же уравляется ключем. $ gulp some-task --dbg
-
-"Shift + p" - Переключить production-mode.
-              Так же управляется ключем. $ gulp some-task --production
-
-        "h" - Сборка njk-файлов в html. Аналог $ gulp html
-
-        "s" - Сборка основных стилей.
+[Shift + d] - Переключить debug-mode в противоположный.
+              Так же управляется аргументом "--dbg".
+[Shift + p] - Переключить production-mode.
+              Так же управляется аргументом "--production".
+        [h] - Сборка njk-файлов в html. Аналог $ gulp html
+        [s] - Сборка основных стилей.
               Аналог $ gulp precss-main
-"Shift + s" - Сборка основных стилей и их bundle-а
+[Shift + s] - Сборка основных стилей и их css-bundle-а
               Аналог $ gulp precss-main-bundle
-
-        "a" - Сборка всех стилей (но без сборки bundle-а).
+        [a] - Сборка всех стилей (основных + компонентов, но без сборки bundle-а).
               Аналог $ gulp precss-main && gulp precss-components
-"Shift + a" - Полный сборка всех стилей: компоненты, основные стили + bundle.
+[Shift + a] - Полный сборка всех стилей: компоненты, основные стили + bundle.
               Аналог $ gulp precss
-
-        "l" - Соберет только precss-файлы компонентов (component/ns/name/tpl/style.(less|scss)).
+        [l] - Соберет только precss-файлы компонентов (component/ns/name/tpl/style.(less|scss)).
               Аналог $ gulp precss-components
-
-"Shift + l" - Сборка только css-bundle-а.
+        [k] - Сборка только css-bundle-а.
               Аналог $ gulp css-bundle
-
-        "j" - Сборка js-bundle(ов)
-              Аналог $ gulp js-bundle
-              из js/src/_<bundle_name>.js -> js/bundle.<bundle_name[.min].js
-              Как bundle один js/src/bundle.index.js -> js/bundle.index[.min].js
-              <bundle_name> не может значение "vendor"
-"Shift + j" - Сборка js-vendor-bundle(а)
-              Аналог $ gulp js-vendor-bundle
-              из js/vendor/bundle.vendor.js -> js/bundle.vendor[.min].js
-
-        "k" - Обработка всех скриптов кроме js-bundle-ов.
-              Чаще всего используется для файлов script.js в компонентах
+        [j] - Сборка js-bundle(ов).
+              Аналог $ gulp js-bundles
+              из sources/js/<bundle_name>.js -> js/bundle.<bundle_name>[.min].js
+[Shift + j] - Обработка всех скриптов кроме js-bundle-ов,
+              в т.ч. для файлов script.js в компонентах
               Аналог $ gulp js-scripts
-"Shift + k" - Полная обработка js-файлов в т.ч. создание js-bundle-ов
+  [Alt + j] - Полная обработка js-файлов в т.ч. создание js-bundle-ов
               Аналог $ gulp js
-
-    "Alt+i" - Минификация картинок в папке source/images
-              с перемещением оптимизированных в images/
-              Аналог $ gulp images:main
-
-  "Shift+i" - Минификация картинок в папках компонентов
-              картинки из img.src/ оптимизируются и сохраняются в images/
-              (пр.: components/bitrix/news.list/.default/{img.src -> images}/rel/path/to/bg.png)
-              Аналог $ gulp images:components
-
-        "i" - Минификация всех картинок (общих и компонентов)
+        [i] - Минификация всех картинок (общих и компонентов)
               Аналог $ gulp images
-
-        "u" - Производит сборку спрайтов.
+    [Alt+i] - Минификация картинок в папке source/images
+              и размещение оптимизированных в images/
+              Аналог $ gulp images:main
+  [Shift+i] - Минификация картинок в папках компонентов
+              картинки из img.src/ оптимизируются и сохраняются в images/
+              Пр.: "components/bitrix/news.list/.default/{img.src -> images}/rel/path/to/bg.png".
+              Аналог $ gulp images:components
+        [u] - Производит сборку спрайтов.
               Аналог $ gulp sprites
-
-        "f" - Сборка svg-файлов в иконочный шрифт
+        [f] - Сборка svg-файлов в иконочный шрифт
               Аналог $ gulp svg-icons-font
-
-        "g" - Загрузка шрифтов google-web-fonts (fonts.google.com)
+        [g] - Загрузка шрифтов google-web-fonts (fonts.google.com)
               Аналог $ gulp google-web-fonts
               Загрузка повлечет за собой создание precss-файлов, на которые
               настроен watcher, соответственно будут пересобраны все precss-файлы $ gulp precss
-
-        "b" - Полная сборка проекта. Аналог $ gulp build
-
+        [b] - Полная сборка проекта. Аналог $ gulp build
 `);
 	done();
 }
