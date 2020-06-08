@@ -50,7 +50,7 @@ class JsTools {
 
 	createBundleStream(bundle) {
 		const conf = this.conf;
-		if(conf.debug) gutil.log('started building js-bundle '+gutil.colors.blue('"'+bundle.name+'"'));
+		if(conf.verbose) gutil.log('started building js-bundle '+gutil.colors.blue('"'+bundle.name+'"'));
 		this.bundles[bundle.name] = bundle;
 		let stream = bundle.bfy.bundle()
 			.pipe(vsource(bundle.filename))
@@ -59,14 +59,14 @@ class JsTools {
 			.on('error', utils.swallowError)
 			.pipe(this.externalizeBrowserifySourceMap(bundle.dest))
 			.pipe(tap(() => {
-				if (conf.debug) gutil.log('js-bundle "'+bundle.name+'": '
+				if (conf.verbose) gutil.log('js-bundle "'+bundle.name+'": '
 					+gutil.colors.blue(bundle.src+' -> '+bundle.dest+Path.sep+bundle.filename));
 			}))
 			.pipe(this.gulp.dest(bundle.dest));
 		if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
 			stream = this.addMinificationToJsStream(stream, Path.dirname(conf.js.bundle.dest))
 		}
-		else if(conf.debug) {
+		else if(conf.verbose) {
 			stream = stream.pipe(tap(() => gutil.log(
 				gutil.colors.gray('skipping minify', bundle.filename)
 				+gutil.colors.gray(' (checkout --production option)')
@@ -110,15 +110,15 @@ class JsTools {
 
 	addMinificationToJsStream(stream, dest, debugTitle) {
 		const conf = this.conf;
-		let debugMode = true;
+		let verboseMode = true;
 		if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
-			debugMode = false;
+			verboseMode = false;
 		}
 		return stream
 			.pipe(plumber())
 			.pipe(sourcemaps.init({loadMaps: true}))
 			.pipe(uglify())
-			.pipe(debugMode ? debug({title: debugTitle}) : gutil.noop())
+			.pipe(verboseMode ? debug({title: debugTitle}) : gutil.noop())
 			.pipe(rename({extname: '.min.js'}))
 			.pipe(sourcemaps.write('.', {
 				includeContent: false

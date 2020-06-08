@@ -135,9 +135,9 @@ function getHotKeysWatcher(conf, state, runSequence) {
 				'--finish-interactive-mode-task-action', 'add-watchers'
 			);
 		});
-		keyListener.on('switchDebugMode', function() {
-			conf.debug = !conf.debug;
-			gutil.log(gutil.colors.magenta('Debug mode switched to "'+(conf.debug?'true':'false')+'"'))
+		keyListener.on('switchVerboseMode', function() {
+			conf.verbose = !conf.verbose;
+			gutil.log(gutil.colors.magenta('Debug mode switched to "'+(conf.verbose?'true':'false')+'"'))
 		});
 		keyListener.on('switchProductionMode', function() {
 			conf.production = !conf.production;

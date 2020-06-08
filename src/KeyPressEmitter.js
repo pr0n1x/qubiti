@@ -144,8 +144,8 @@ class KeyPressEmitter extends EventEmitter {
 			this.emit('downloadGoogleWebFonts');
 		}
 		else if ('d' === key.name && 'D' === key.sequence && key.shift === true) {
-			gutil.log('Hot key [Shift+d]: Switch debug mode');
-			this.emit('switchDebugMode');
+			gutil.log('Hot key [Shift+d]: Switch verbose mode');
+			this.emit('switchVerboseMode');
 		}
 		else if ('p' === key.name && 'P' === key.sequence && key.shift === true) {
 			gutil.log('Hot key [Shift+p]: Switch production mode');

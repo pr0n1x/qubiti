@@ -336,7 +336,7 @@ utils.dereferencePlaceHolder(conf.svgIconFont, /@precss_base/, conf.precss.main.
 utils.dereferencePlaceHolder(conf.js.bundle, /@js_bundle_base/, conf.js.bundle.base);
 
 // noinspection JSUnresolvedVariable
-conf.debug = !!(gutil.env.dbg ? true : conf.debug);
+conf.verbose = !!(gutil.env.vrb ? true : conf.verbose);
 conf.production = !!(gutil.env.production ? true : conf.production);
 if (gutil.env['optipng-level'] !== undefined) {
 	conf.images.png.optimizationLevel = gutil.env['optipng-level'];
@@ -437,7 +437,7 @@ gulp.task('precss-main', function() {
 	return precssCommonPipe(
 		gulp.src(conf.precss.main.files, {dot: true}),
 		conf.precss.main.dest,
-		conf.debug ? 'main precss:' : ''
+		conf.verbose ? 'main precss:' : ''
 	);
 });
 gulp.task('precss-main-bundle', function(done) {
@@ -447,16 +447,16 @@ gulp.task('precss-components', function() {
 	return precssCommonPipe(
 		gulp.src(conf.precss.components.files, {dot: true, base: '.'}),
 		'.',
-		conf.debug ? 'component precss:' : ''
+		conf.verbose ? 'component precss:' : ''
 	);
 });
 gulp.task('test-precss-one-file', function() {
 	return precssWatcher({path: conf.curDir+'/components/layout/menu/main-nav/style.scss'}, 'components');
 });
 function precssCommonPipe(stream, dest, debugTitle) {
-	let debugMode = true;
+	let verboseMode = true;
 	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
-		debugMode = false;
+		verboseMode = false;
 	}
 
 	function mapSourcesCompile(sourcePath, file) {
@@ -501,7 +501,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 		.pipe(postcss([autoprefixer()]))
 		.pipe(tap(function(file) {
 			let parsedPath = utils.parsePath(file.relative);
-			if(debugMode) {
+			if(verboseMode) {
 				gutil.log(debugTitle+' compile: '+gutil.colors.blue(
 					parsedPath.dirname+Path.sep
 					+' { '+parsedPath.basename
@@ -523,7 +523,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 		stream = stream.pipe(cssFilter)
 			.pipe(sourcemaps.init({loadMaps: true}))
 			.pipe(tap(function(file) {
-				if(debugMode) {
+				if(verboseMode) {
 					let parsedPath = utils.parsePath(file.relative);
 					gutil.log(debugTitle+'  minify: '+gutil.colors.blue(
 						parsedPath.dirname+Path.sep
@@ -584,7 +584,7 @@ function precssWatcher(changedFile, target) {
 				}
 			}));
 			dest = conf.precss.main.dest;
-			if(conf.debug) gutil.log('precss watcher: '+gutil.colors.blue(file));
+			if(conf.verbose) gutil.log('precss watcher: '+gutil.colors.blue(file));
 			break;
 		case 'components':
 			dest = '.';
@@ -592,7 +592,7 @@ function precssWatcher(changedFile, target) {
 				Path.dirname(file)+'/'+conf.precss.components.styleName,
 				{dot: true, base: '.'}
 			);
-			if(conf.debug) gutil.log(
+			if(conf.verbose) gutil.log(
 				'precss watcher: '
 				+gutil.colors.blue(dest+'/'
 					+((fileName === conf.precss.components.styleName)
@@ -610,7 +610,7 @@ function precssWatcher(changedFile, target) {
 			throw 'precss-watcher: wrong watcher target';
 	}
 
-	return precssCommonPipe(stream, dest, conf.debug ? 'precss watcher:' : '')
+	return precssCommonPipe(stream, dest, conf.verbose ? 'precss watcher:' : '')
 		.pipe(tap(function(file) {
 			if (typeof file.rebuildCssBundle != 'undefined' && file.rebuildCssBundle) {
 				runSequence('css-bundle');
@@ -645,7 +645,7 @@ gulp.task('css-bundle', function() {
 
 			if(Array.isArray(cssBundleFiles) && cssBundleFiles.length > 0) {
 				let bundleStream = gulp.src(cssBundleFiles, {dot: true})
-					.pipe(conf.debug ? debug({title: 'css bundle file:', showCount: false}) : gutil.noop())
+					.pipe(conf.verbose ? debug({title: 'css bundle file:', showCount: false}) : gutil.noop())
 					.pipe(plumber())
 					.pipe(sourcemaps.init({loadMaps: true}))
 					.pipe(tap(function(file) {
@@ -690,7 +690,7 @@ gulp.task('css-bundle', function() {
 							|| !conf.dev_mode.no_bsync_css_bundle_file
 						)
 						? createBrowserSyncStream()
-						: (conf.debug
+						: (conf.verbose
 							? debug({title: 'ignoring browser-sync update of css-bundle:', showCount: false})
 							: gutil.noop()
 						)
@@ -719,7 +719,7 @@ gulp.task('css-bundle', function() {
 										|| !conf.dev_mode.no_bsync_css_bundle_file
 									)
 									? createBrowserSyncStream()
-									: (conf.debug
+									: (conf.verbose
 										? debug({title: 'ignoring browser-sync update of css-bundle:', showCount: false})
 										: gutil.noop()
 									)
@@ -733,7 +733,7 @@ gulp.task('css-bundle', function() {
 				stream.add(bundleStream);
 			}
 		}
-		else if(conf.debug) {
+		else if(conf.verbose) {
 			gutil.log(
 				'ignoring building of css-bundle: '
 				+gutil.colors.blue(bundleName+'.css')
@@ -752,7 +752,7 @@ function parseCssBundleImportListAsync(afterParseCallback) {
 	cssBundleFiles = [];
 	let cssBundleFilesImport = '';
 	return gulp.src(conf.precss.main.bundle)
-		.pipe(conf.debug ? debug({title: 'css bundle:', showCount: false}) : gutil.noop())
+		.pipe(conf.verbose ? debug({title: 'css bundle:', showCount: false}) : gutil.noop())
 		.pipe(tap(function(file) {
 			let relBundleFilePath = getRelFilePath(file.path);
 			let bundleName = Path.basename(file.path)
@@ -821,7 +821,7 @@ gulp.task('--html-nunjucks', function() {
 	// noinspection JSUnusedGlobalSymbols
 	return gulp.src(conf.html.pages)
 		.pipe(plumber())
-		.pipe(conf.debug ? debug({title: 'compile page: '}) : gutil.noop())
+		.pipe(conf.verbose ? debug({title: 'compile page: '}) : gutil.noop())
 		.pipe(tap(function(file) {
 			njkAssets.currentPage = getRelFilePath(file.path);
 		}))
@@ -876,10 +876,10 @@ gulp.task('js-scripts', function() {
 	let stream = gulp.src(conf.js.scripts, {dot: true, base: '.'});
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
 		stream = jsTools.addMinificationToJsStream(
-			stream,'.', conf.debug ? 'js-script:' : ''
+			stream,'.', conf.verbose ? 'js-script:' : ''
 		);
 	}
-	else if(conf.debug) gutil.log(
+	else if(conf.verbose) gutil.log(
 		gutil.colors.gray('skipping js-scripts minification')
 		+gutil.colors.gray(' (checkout --production option)')
 	);
@@ -898,7 +898,7 @@ function jsWatcher(changedFile) {
 	if (fileStat.isDirectory()) {
 		return gutil.noop();
 	}
-	if (conf.debug) gutil.log(
+	if (conf.verbose) gutil.log(
 		'js script: '+gutil.colors.blue(
 			dest+'/{ '+fileName+' -> '+fileName.replace(/\.js/, '.min.js')+' }'
 		)
@@ -906,7 +906,7 @@ function jsWatcher(changedFile) {
 	let stream = gulp.src(file);
 	if (conf.assets.min_js || conf.dev_mode.minify_useless_js) {
 		stream = jsTools.addMinificationToJsStream(stream, dest);
-	} else if(conf.debug) {
+	} else if(conf.verbose) {
 		gutil.log(
 			gutil.colors.gray('skipping minify of ')
 			+gutil.colors.blue(file)
@@ -961,7 +961,7 @@ gulp.task('ttf-to-web-fonts', function () {
 		.pipe(ttf2woff2())
 		.pipe(gulp.dest(conf.webFonts.dest)));
 	// noinspection JSUnresolvedFunction
-	return stream.pipe(conf.debug ? debug({title: 'web-font'}) : gutil.noop());
+	return stream.pipe(conf.verbose ? debug({title: 'web-font'}) : gutil.noop());
 });
 
 /**
@@ -996,11 +996,11 @@ function configuredImageMin() {
 	]);
 }
 gulp.task('images:main', function() {
-	function debug(debugTitle, doneDebugTitle) {
+	function debug(verboseTitle, doneDebugTitle) {
 		let fileCount = 0;
 		return through2.obj((file, enc, cb) => {
 			const relBase = Path.relative(file.cwd, file.base);
-			gutil.log(`${debugTitle}: `+gutil.colors.blue(
+			gutil.log(`${verboseTitle}: `+gutil.colors.blue(
 				relBase !== conf.images.common.dest
 					? `{ ${relBase} -> ${conf.images.common.dest} }/${file.relative}`
 					: `${conf.images.common.dest}/${file.relative}`
@@ -1015,7 +1015,7 @@ gulp.task('images:main', function() {
 	let stream = gulp.src(conf.images.common.src, {dot: true})
 		.pipe(getFilteredStream(gutil.env['filter']))
 		.pipe(configuredImageMin())
-		.pipe(conf.debug ? debug(
+		.pipe(conf.verbose ? debug(
 			'optimizing image',
 			'optimized images'
 		) : gutil.noop())
@@ -1023,7 +1023,7 @@ gulp.task('images:main', function() {
 	if (conf.images.svgz) {
 		stream = stream.pipe(filter('**/{*,.*}/**/*.svg'))
 			.pipe(svg2z())
-			.pipe(conf.debug ? debug(
+			.pipe(conf.verbose ? debug(
 				'compressing svg -> svgz',
 				'compressed svgz files'
 			) : gutil.noop())
@@ -1039,11 +1039,11 @@ gulp.task('images:components', function() {
 			fileCount++;
 			if (pathParts.length === 2) {
 				file.path = pathParts.join(`/${conf.images.components.destFolder}/`)
-				if (conf.debug) gutil.log(`${debugTitle}: ` + gutil.colors.blue(
+				if (conf.verbose) gutil.log(`${debugTitle}: ` + gutil.colors.blue(
 					`${pathParts[0]}/{ ${conf.images.components.srcFolder}`
 					+` -> ${conf.images.components.destFolder} }/${pathParts[1]}`
 				));
-			} else if (conf.debug) {
+			} else if (conf.verbose) {
 				gutil.log(`${debugTitle}: ` + gutil.colors.blue(file.relative));
 			}
 			cb(null, file);
@@ -1087,7 +1087,7 @@ gulp.task('sprites', function() {
 			,filterLess = filter('*.less', {restore: true});
 		// noinspection JSUnusedGlobalSymbols
 		spriteBatch.stream
-			.pipe(conf.debug ? debug({title: 'sprite "'+spriteBatch.name+'" image:'}) : gutil.noop())
+			.pipe(conf.verbose ? debug({title: 'sprite "'+spriteBatch.name+'" image:'}) : gutil.noop())
 			// Компилируем спрайты
 			.pipe(spritesmith({
 				imgName: spriteBatch.name+'.png'
@@ -1132,7 +1132,7 @@ gulp.task('sprites', function() {
 
 						// noinspection JSUnresolvedFunction
 						lessMixinsSpriteStream
-							.pipe(conf.debug ? debug({title: 'spriteBatch less mixin:'}) : gutil.noop())
+							.pipe(conf.verbose ? debug({title: 'spriteBatch less mixin:'}) : gutil.noop())
 							.pipe(vbuffer())
 							.pipe(gulp.dest(lessMixinsDir))
 						;
@@ -1231,7 +1231,7 @@ function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
 	}
 	if( typeof(deepDependenciesIndex) != 'object' || null === deepDependenciesIndex ) {
 		deepDependenciesIndex = {};
-		if( conf.debug ) {
+		if( conf.verbose ) {
 			gutil.log(gutil.colors.blue('Building the less import dependency tree'));
 		}
 	}
