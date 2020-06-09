@@ -49,7 +49,7 @@
     "gulp-ttf2woff": "^1.1.1",
     "gulp-ttf2woff2": "^3.0.0",
     "gulp-twig": "^0.7.0",
-    "gulp-uglify": "^2.1.2",
+    "gulp-uglify-es": "^2.0.0",
     "gulp-util": "^3.0.7",
     "gulp-vueify": "0.0.3",
     "gulp-watch": "^4.3.11",
