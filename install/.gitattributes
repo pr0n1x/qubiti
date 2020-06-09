@@ -1,0 +1,9 @@
+*.min.js -crlf -diff
+*-min.js -crlf -diff
+*.pack.js -crlf -diff
+*-pack.js -crlf -diff
+*.js.map -crlf -diff
+*.min.css -crlf -diff
+*-min.css -crlf -diff
+*.css.map -crlf -diff
+*.svg -crlf -diff

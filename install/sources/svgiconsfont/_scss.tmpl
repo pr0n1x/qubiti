@@ -1,0 +1,67 @@
+$<%= fontName %>-<%= cssClass %>: (
+  <%
+	const timestamp = (new Date()).getTime();
+	let first = true;
+	_.each(glyphs, function(glyph) {
+		if (first) first = false;
+		else {%>,
+  <%
+		}
+		%><%= glyph.fileName %>: "\<%= glyph.codePoint %>"<%
+	});
+%>
+);
+@mixin <%= fontName %>-fontface() {
+  @font-face {
+    font-family: "<%= fontName %>";
+      src: url('../<%= fontPath %>/<%= fontName %>.eot?ts=<%=timestamp%>');
+      src: url('../<%= fontPath %>/<%= fontName %>.eot?ts=<%=timestamp%>#iefix') format('eot'),
+           url('../<%= fontPath %>/<%= fontName %>.woff2?ts=<%=timestamp%>') format('woff2'),
+           url('../<%= fontPath %>/<%= fontName %>.woff?ts=<%=timestamp%>') format('woff'),
+           url('../<%= fontPath %>/<%= fontName %>.ttf?ts=<%=timestamp%>') format('truetype'),
+           url('../<%= fontPath %>/<%= fontName %>.svg?ts=<%=timestamp%>#<%= fontName %>') format('svg');
+  }
+}
+
+@mixin <%= fontName %>-<%= cssClass %>-base() {
+  font-family: "<%= fontName %>";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  display: inline-block;
+  position: relative;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+@mixin <%= fontName %>-<%= cssClass %>-base-pseudo() {
+  font-family: "<%= fontName %>";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  font-style: normal;
+  font-variant: normal;
+  font-weight: normal;
+  // speak: none; // only necessary if not using the private unicode range (firstGlyph option)
+  text-decoration: none;
+  text-transform: none;
+}
+
+@mixin _<%= cssClass %>($filename, $pseudo-selector: before) {
+  @extend .<%= cssClass %>;
+  &:#{$pseudo-selector} {
+    @extend %<%= cssClass %>-pseudo;
+    content: map-get($<%= fontName %>-<%= cssClass %>, "#{$filename}");
+  }
+}
+
+@mixin <%= fontName %>-<%= cssClass %>-generate() {
+  .<%= cssClass %> { @include <%= fontName %>-<%= cssClass %>-base(); }
+  %<%= cssClass %>-pseudo { @include <%= fontName %>-<%= cssClass %>-base-pseudo(); }
+
+<% _.each(glyphs, function(glyph) {
+%>  .<%= cssClass %>-<%= glyph.fileName %> {
+    @include _<%= cssClass %>(<%= glyph.fileName %>);
+  }
+<% });
+%>}

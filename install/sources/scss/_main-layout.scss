@@ -1,0 +1,36 @@
+$footer-lg-height: 572px;
+html {
+  display: block;
+  min-height: 100%;
+  position: relative;
+}
+body {
+  @include media-breakpoint-up(lg) {
+    margin-bottom: $footer-lg-height;
+  }
+}
+.root {
+  &__header {
+
+  }
+  &__main {
+
+  }
+  &__footer {
+    width: 100%;
+    background: $gray-200;
+    @include media-breakpoint-up(lg) {
+      position: absolute;
+      bottom: 0;
+      height: $footer-lg-height;
+    }
+  }
+}
+
+.root-header {
+
+}
+
+.root-footer {
+
+}

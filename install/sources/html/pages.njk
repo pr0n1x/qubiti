@@ -1,0 +1,27 @@
+{% import "sources/html/_layout.njk" as template %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Список страниц</title>
+
+	<style type="text/css" rel="stylesheet">
+		body {
+			font-family: Arial, sans;
+		}
+		.pages-list li {
+			margin-bottom: 10px;
+			letter-spacing: 0.7pt;
+		}
+	</style>
+</head>
+<body>
+<h1>Список страниц</h1>
+<ol class="pages-list">
+	{% for pageCode, page in template.pages %}
+		<li><a href="{{ page.href }}">{{ page.title }}</a></li>
+	{% endfor %}
+</ol>
+</body>
+</html>
