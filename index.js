@@ -504,10 +504,10 @@ function precssCommonPipe(stream, dest, debugTitle) {
 			if(verboseMode) {
 				gutil.log(debugTitle+' compile: '+gutil.colors.blue(
 					parsedPath.dirname+Path.sep
-					+' { '+parsedPath.basename
+					+'{ '+parsedPath.basename
 					+(('.css' === parsedPath.extname) ? '.'+conf.precss.lang : '')
 					+' -> '
-					+parsedPath.basename+parsedPath.extname+' } '
+					+parsedPath.basename+parsedPath.extname+' }'
 				));
 			}
 		}))
@@ -527,10 +527,10 @@ function precssCommonPipe(stream, dest, debugTitle) {
 					let parsedPath = utils.parsePath(file.relative);
 					gutil.log(debugTitle+'  minify: '+gutil.colors.blue(
 						parsedPath.dirname+Path.sep
-						+' { '+Path.basename(parsedPath.basename, '.min')
+						+'{ '+Path.basename(parsedPath.basename, '.min')
 						+(('.map' === parsedPath.extname) ? '': '.css')
 						+' -> '
-						+parsedPath.basename+parsedPath.extname+' } '
+						+parsedPath.basename+'.min'+parsedPath.extname+' }'
 					));
 				}
 			}))
