@@ -1,5 +1,7 @@
 'use strict';
 module.exports = {
+	verbose: true,
+	production: true,
 	precss: {
 		lang: 'less' // less | scss
 	},
@@ -12,7 +14,6 @@ module.exports = {
 		// используются отдельные файлы css-bundle-а
 		// подключенные непосредственно в html-е.
 		// Соответственно:
-
 		// можно не синхронизировать в browser-sync
 		// файл bundle[.min].css
 		// опция в консоли: --dev-no-bsync-css-bundle-file
