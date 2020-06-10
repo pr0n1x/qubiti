@@ -84,7 +84,7 @@ const state = {
 let conf = {
 	//noinspection JSUnresolvedVariable
 	curDir: currentTemplateDir
-	,debug: false
+	,verbose: false
 	,production: false
 	,assets: {
 		// Использовать минифицированные css-файлы
