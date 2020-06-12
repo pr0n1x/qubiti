@@ -1,7 +1,7 @@
 'use strict';
 module.exports = {
 	verbose: true,
-	production: true,
+	production: false,
 	precss: {
 		lang: 'less' // less | scss
 	},
