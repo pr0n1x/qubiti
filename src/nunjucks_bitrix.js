@@ -242,9 +242,10 @@ function replaceAssetsPlaceHolders(assets) {
 
 function injectData(conf, cssBundleFiles) {
 	return data(function(file) {
+
 		const currentFile = utils.getRelFilePath(file.path, `${conf.curDir}/${conf.html.base}`);
 		const currentDir = Path.dirname(currentFile);
-		const layoutDocumentRoot = Path.relative('/'+conf.html.dest+'/'+file.relative, '/');
+		const layoutDocumentRoot = Path.relative('/'+conf.html.dest, '/');
 		const layoutSiteTemplatePath = layoutDocumentRoot;
 		const layoutSiteDir = layoutDocumentRoot+'/'+conf.html.dest+'/';
 		const layoutImagesDir = layoutSiteTemplatePath+'/'+conf.images.common.dest;
