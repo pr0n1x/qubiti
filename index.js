@@ -258,6 +258,8 @@ let conf = {
 			src: [
 				 'components/*/*/{*,.*}/img.src/**/*.{jpeg,jpg,png,gif,ico,svg}'
 				,'components/*/*/{*,.*}/*/*/{*,.*}/img.src/**/*.{jpeg,jpg,png,gif,ico,svg}'
+				,'!components/*/*/{*,.*}/img.src/**/_*{,/*,/**/*}.{jpeg,jpg,png,gif,ico,svg}'
+				,'!components/*/*/{*,.*}/*/*/{*,.*}/img.src/**/_*{,/*,/**/*}.{jpeg,jpg,png,gif,ico,svg}'
 			]
 			,srcFolder: 'img.src'
 			,destFolder: 'images'
@@ -996,8 +998,7 @@ function configuredImageMin() {
 	]);
 }
 gulp.task('images:main', function() {
-	function debug(verboseTitle, doneDebugTitle) {
-		let fileCount = 0;
+	function verbose(verboseTitle) {
 		return through2.obj((file, enc, cb) => {
 			const relBase = Path.relative(file.cwd, file.base);
 			gutil.log(`${verboseTitle}: `+gutil.colors.blue(
@@ -1005,69 +1006,78 @@ gulp.task('images:main', function() {
 					? `{ ${relBase} -> ${conf.images.common.dest} }/${file.relative}`
 					: `${conf.images.common.dest}/${file.relative}`
 			));
-			fileCount++;
 			cb(null, file);
-		}, done => {
-			gutil.log(`${doneDebugTitle}: `+gutil.colors.green(`${fileCount} items`));
-			done();
-		})
+		});
+	}
+	function verboseResult(doneVerboseTitle) {
+		let fileCount = 0;
+		return through2.obj(
+			(file, enc, cb) => {
+				fileCount++;
+				cb(null, file);
+			},
+			done => {
+				gutil.log(`${doneVerboseTitle}: `+gutil.colors.green(`${fileCount} items`));
+				done();
+			}
+		);
 	}
 	let stream = gulp.src(conf.images.common.src, {dot: true})
 		.pipe(getFilteredStream(gutil.env['filter']))
+		.pipe(conf.verbose ? verbose('optimizing image') : gutil.noop())
 		.pipe(configuredImageMin())
-		.pipe(conf.verbose ? debug(
-			'optimizing image',
-			'optimized images'
-		) : gutil.noop())
+		.pipe(conf.verbose ? verboseResult('optimized images') : gutil.noop())
 		.pipe(gulp.dest(conf.images.common.dest));
 	if (conf.images.svgz) {
 		stream = stream.pipe(filter('**/{*,.*}/**/*.svg'))
+			.pipe(conf.verbose ? verbose('compressing svg(z)') : gutil.noop())
 			.pipe(svg2z())
-			.pipe(conf.verbose ? debug(
-				'compressing svg -> svgz',
-				'compressed svgz files'
-			) : gutil.noop())
+			.pipe(conf.verbose ? verboseResult('compressed svg(z) files') : gutil.noop())
 			.pipe(gulp.dest(conf.images.common.dest))
 	}
 	return stream.pipe(createBrowserSyncStream());
 });
 gulp.task('images:components', function() {
-	function fixPath(debugTitle, doneDebugTitle) {
-		let fileCount = 0;
+	function fixPathAndVerbose(verboseTitle) {
 		return through2.obj(function(file, enc, cb) {
 			const pathParts = file.relative.split(`/${conf.images.components.srcFolder}/`);
-			fileCount++;
 			if (pathParts.length === 2) {
 				file.path = pathParts.join(`/${conf.images.components.destFolder}/`)
-				if (conf.verbose) gutil.log(`${debugTitle}: ` + gutil.colors.blue(
+				if (conf.verbose) gutil.log(`${verboseTitle}: ` + gutil.colors.blue(
 					`${pathParts[0]}/{ ${conf.images.components.srcFolder}`
 					+` -> ${conf.images.components.destFolder} }/${pathParts[1]}`
 				));
 			} else if (conf.verbose) {
-				gutil.log(`${debugTitle}: ` + gutil.colors.blue(file.relative));
+				gutil.log(`${verboseTitle}: ` + gutil.colors.blue(file.relative));
 			}
 			cb(null, file);
-		}, done => {
-			gutil.log(`${doneDebugTitle}: `+gutil.colors.green(`${fileCount} items`));
-			done();
-		})
+		});
+	}
+	function verboseResult(doneVerboseTitle) {
+		let fileCount = 0;
+		return through2.obj(
+			(file, enc, cb) => {
+				fileCount++;
+				cb(null, file)
+			},
+			done => {
+				gutil.log(`${doneVerboseTitle}: `+gutil.colors.green(`${fileCount} items`));
+				done();
+			}
+		);
 	}
 	let stream = gulp.src(conf.images.components.src, {dot: true, base: '.'})
 		.pipe(getFilteredStream(gutil.env['filter']))
+		.pipe(fixPathAndVerbose('optimizing component image'))
 		.pipe(configuredImageMin())
-		.pipe(fixPath(
-			'optimizing component image',
-			'optimized components images'
-		))
+		.pipe(verboseResult('optimized components images'))
 		.pipe(gulp.dest('.'));
 
 	if (conf.images.svgz) {
 		stream = stream.pipe(filter('**/{*,.*}/**/*.svg'))
+			.pipe(fixPathAndVerbose('compressing component svg(z)'))
 			.pipe(svg2z())
-			.pipe(fixPath(
-				'compressing component (svg -> svgz)',
-				'compressed svgz files'
-			))
+			.pipe(verboseResult('compressed component svg(z) files'))
 			.pipe(gulp.dest('.'));
 	}
 	return stream.pipe(createBrowserSyncStream());
