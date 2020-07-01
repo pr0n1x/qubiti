@@ -59,11 +59,12 @@ const
 	,ttf2woff = loadLazy(() => require('gulp-ttf2woff'))
 	,ttf2woff2 = loadLazy(() => require('gulp-ttf2woff2'))
 	,through2 = loadLazy(() => require('through2'))
+	,iconv = loadLazy(() => require('iconv-lite'))
 	// ,nodeSassTildeImporter = require('node-sass-tilde-importer')
 	,nodeSassTildeImporter = require('./src/nodeSassTildeImporter')
 
 	,utils = require('./src/utils')
-	,nunjucksBitrix = require('./src/nunjucks_bitrix')
+	,nunjucksBitrix = require('./src/nunjucks/bitrix')
 	,JsTools = require('./src/JsTools')
 	,bsMiddleware = require('./src/middlewares')
 	,hotKeys = loadLazy('./src/hot_keys')
@@ -818,20 +819,31 @@ gulp.task('html', function(done) {
 
 let njkAssets = {};
 gulp.task('--html-nunjucks', function() {
+	const FileSystemLoader = require('./src/nunjucks/node-loaders').FileSystemLoader;
 	// noinspection JSUnresolvedVariable
 	nunjucksRender.nunjucks.configure();
 	njkAssets = new nunjucksBitrix.ComponentsAssets(conf);
 	// noinspection JSUnusedGlobalSymbols
-	return gulp.src(conf.html.pages)
+	let stream = gulp.src(conf.html.pages)
 		.pipe(plumber())
 		.pipe(conf.verbose ? debug({title: 'compile page: '}) : gutil.noop())
 		.pipe(tap(function(file) {
 			njkAssets.currentPage = getRelFilePath(file.path);
+		}));
+	if (conf.html.charset !== 'UTF-8') {
+		stream = stream.pipe(tap(function(file) {
+			file.contents = Buffer.from(iconv.decode(file.contents, conf.html.charset));
 		}))
+	}
+	stream = stream
 		.pipe(nunjucksBitrix.injectData(conf, cssBundleFiles))
 		.pipe(nunjucksRender({
 			path: conf.curDir
+			,encoding: conf.html.charset
 			,ext: '.html'
+			,loaders: [new FileSystemLoader(conf.curDir, {
+				encoding: conf.html.charset
+			})]
 			,manageEnv: function(env) {
 				env.curDir = conf.curDir;
 				// noinspection JSUnresolvedFunction
@@ -840,13 +852,26 @@ gulp.task('--html-nunjucks', function() {
 				env.addExtension('BitrixComponentAssetsCssPlaceHolder', new nunjucksBitrix.ComponentAssetsCssPlaceHolder());
 				// noinspection JSUnresolvedFunction
 				env.addExtension('BitrixComponentAssetsJsPlaceHolder', new nunjucksBitrix.ComponentAssetsJsPlaceHolder());
+				env.on('load', function(name, source, loader) {
+					// if (conf.html.charset !== 'UTF-8') {
+					// 	source.src = iconv.decode(
+					// 		Buffer.from(source.src),
+					// 		conf.html.charset
+					// 	).toString()
+					// }
+					// console.log('njk load', name, source);
+				});
 				nunjucksIncludeData.install(env);
 			}
 		}))
-		.pipe(nunjucksBitrix.replaceAssetsPlaceHolders(njkAssets))
-		.pipe(gulp.dest(conf.html.dest))
-		.on('end', function() { reloadBrowserSync(); })
-	;
+		.pipe(nunjucksBitrix.replaceAssetsPlaceHolders(njkAssets));
+	// if (conf.html.charset !== 'UTF-8') {
+	// 	stream = stream.pipe(tap(function(file) {
+	// 		file.contents = Buffer.from(iconv.encode(file.contents, conf.html.charset));
+	// 	}));
+	// }
+	return stream.pipe(gulp.dest(conf.html.dest))
+		.on('end', function() { reloadBrowserSync(); });
 });
 
 
@@ -1561,7 +1586,7 @@ gulp.task('run-browser-sync', function() {
 		...conf.browserSync,
 		middleware: [
 			bsMiddleware.svgz(conf.curDir),
-			bsMiddleware.htmlCharset(conf.html.charset)
+			bsMiddleware.htmlCharset(conf.curDir, conf.html.charset)
 		]
 	});
 });

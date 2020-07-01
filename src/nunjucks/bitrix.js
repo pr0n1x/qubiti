@@ -4,7 +4,7 @@ const fs = require('fs')
 	,tap = require('gulp-tap')
 	,gutil = require('gulp-util')
 	,data = require('gulp-data')
-	,utils = require('./utils')
+	,utils = require('../utils')
 	,nunjucks = require('nunjucks')
 ;
 
@@ -171,9 +171,7 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 
 		// render bx_component
 		// noinspection JSCheckFunctionSignatures
-		let templateFileContent = fs.readFileSync(
-			qubitiConfig.curDir+'/'+templateFilePath, {encoding: 'utf8'}
-		);
+		let templateFileContent = this.readFile(qubitiConfig.curDir+'/'+templateFilePath, ctx);
 		templateFileContent = templateFileContent.replace(
 			/(parent=['"])(@component)(['"])/,
 			'$1'+name+'/'+template+'$3'
@@ -184,6 +182,21 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 		return new nunjucks.runtime.SafeString(
 			nunjucksEnvironment.renderString(templateFileContent, ctx)
 		);
+	};
+
+	this.readFile = function(filePath, rootCtx) {
+		try {
+			// используем файловый лоадер, встроенный в nunjucks
+			let fileObj = nunjucksEnvironment.loaders[0].getSource(filePath);
+			if (fileObj) {
+				return fileObj.src;
+			} else {
+				console.log("error to load: " + filePath);
+			}
+		} catch (e) {
+			console.log("error", e);
+		}
+		return null;
 	};
 }
 
@@ -252,7 +265,7 @@ function injectData(conf, cssBundleFiles) {
 		const layoutComponentsBase = layoutSiteTemplatePath+'/components';
 		return {
 			PRODUCTION: conf.production,
-			HTML_CHARSET: conf.html.charset,
+			HTML_CHARSET: 'UTF-8',//conf.html.charset,
 			HTML_SRC_BASE: conf.html.base,
 			CSS_BUNDLE_FILES: cssBundleFiles,
 			__PAGE__: currentFile,

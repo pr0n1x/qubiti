@@ -44,11 +44,11 @@ module.exports = {
 			next();
 		}
 	},
-	htmlCharset: charset => {
+	htmlCharset: (curDir, charset) => {
 		return function(req, res, next) {
-			if (Path.extname(req.url) === '.html') {
-				res.setHeader('Content-Type','text/html; charset='+charset);
-			}
+			// if (Path.extname(req.url) === '.html') {
+			// 	res.setHeader('Content-Type','text/html; charset='+charset);
+			// }
 			next();
 		}
 	}
