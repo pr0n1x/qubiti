@@ -2,7 +2,7 @@ const Path = require('path')
 	, fs = require('fs');
 
 module.exports = {
-	svgz: conf => {
+	svgz: curDir => {
 		/**
 		 * При обращении к svg-файлу
 		 * при наличии на ФС сжатой (svgz-версии)
@@ -14,7 +14,7 @@ module.exports = {
 		return function browserSyncMiddlewareSvgz(req, res, next) {
 			const extname = Path.extname(req.url);
 			if ('.svg' === extname) {
-				const fileFullPath = Path.resolve(conf.curDir, '.' + req.url);
+				const fileFullPath = Path.resolve(curDir, '.' + req.url);
 				const compressedFullPath = fileFullPath + 'z';
 				if (fs.existsSync(compressedFullPath)) {
 					const end = res.end
