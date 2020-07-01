@@ -252,8 +252,9 @@ function injectData(conf, cssBundleFiles) {
 		const layoutComponentsBase = layoutSiteTemplatePath+'/components';
 		return {
 			PRODUCTION: conf.production,
-			CSS_BUNDLE_FILES: cssBundleFiles,
+			HTML_CHARSET: conf.html.charset,
 			HTML_SRC_BASE: conf.html.base,
+			CSS_BUNDLE_FILES: cssBundleFiles,
 			__PAGE__: currentFile,
 			__PATH__: currentDir,
 			DOC_ROOT: layoutDocumentRoot,

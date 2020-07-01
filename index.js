@@ -65,7 +65,7 @@ const
 	,utils = require('./src/utils')
 	,nunjucksBitrix = require('./src/nunjucks_bitrix')
 	,JsTools = require('./src/JsTools')
-	,createMiddlewareSvgz = require('./src/createMiddlewareSvgz')
+	,bsMiddleware = require('./src/middlewares')
 	,hotKeys = loadLazy('./src/hot_keys')
 	,getFilteredStream = loadLazy('./src/getFilteredStream')
 ;
@@ -135,7 +135,8 @@ let conf = {
 		,proxyLamp: 'default.loc'
 	}
 	,html: {
-		base: 'sources/html'
+		charset: 'UTF-8'
+		,base: 'sources/html'
 		,pages: [
 			'@base/**/*.njk'
 			,'!@base/**/_*{,/*,/**/*}.njk'
@@ -1558,7 +1559,10 @@ gulp.task('run-browser-sync', function() {
 	// noinspection JSUnusedGlobalSymbols
 	browserSync.init({
 		...conf.browserSync,
-		middleware: createMiddlewareSvgz(conf)
+		middleware: [
+			bsMiddleware.svgz(conf.curDir),
+			bsMiddleware.htmlCharset(conf.html.charset)
+		]
 	});
 });
 

@@ -23,4 +23,7 @@ module.exports = {
 		// опция в консоли: --dev-no-build-css-bundle-file
 		no_build_css_bundle_file: false
 	}
+	// uncomment to use some charset instead UTF-8
+	//,html: {charset: 'windows-1251'}
+
 };
