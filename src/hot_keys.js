@@ -141,8 +141,8 @@ function getHotKeysWatcher(conf, state, runSequence) {
 		});
 		keyListener.on('switchProductionMode', function() {
 			conf.production = !conf.production;
-			gutil.log(gutil.colors.magenta('Production mode switched to "'+(conf.production?'true':'false')+'"'));
-			gutil.log(gutil.colors.green('After production mode switch you should to do full rebuild [key "b"] to take effect.'));
+			gutil.log(gutil.colors.cyan('Production mode switched to "')+gutil.colors.magenta(conf.production?'true':'false')+gutil.colors.cyan('"'));
+			gutil.log(gutil.colors.gray('After production mode switch you should to do full rebuild ')+gutil.colors.green('[key "b"]')+gutil.colors.gray(' to take effect.'));
 		});
 		keyListener.on('reloadAll', function() {
 			runSequence(
@@ -189,9 +189,9 @@ function showHelpHotKeys(done) {
         [r] - Более масштабная перегрузка watcher-ов включающая пересборку html, precss и js
               Это необходимо например потому, что тот же html зависит от состава файлов css-bundle-а.
               При создании новых компонентов и шаблонов необходимо использовать именно этот вариант.
-[Shift + d] - Переключить debug-mode в противоположный.
-              Так же управляется аргументом "--dbg".
-[Shift + p] - Переключить production-mode.
+[Shift + d] - Переключить verbose-mode (debug).
+              Так же управляется аргументом "--vrb".
+        [p] - Переключить production-mode.
               Так же управляется аргументом "--production".
         [h] - Сборка njk-файлов в html. Аналог $ gulp html
         [s] - Сборка основных стилей.

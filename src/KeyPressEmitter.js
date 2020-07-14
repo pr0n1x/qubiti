@@ -147,8 +147,8 @@ class KeyPressEmitter extends EventEmitter {
 			gutil.log('Hot key [Shift+d]: Switch verbose mode');
 			this.emit('switchVerboseMode');
 		}
-		else if ('p' === key.name && 'P' === key.sequence && key.shift === true) {
-			gutil.log('Hot key [Shift+p]: Switch production mode');
+		else if ('p' === key.name && key.shift === false) {
+			gutil.log('Hot key [p]: Switch production mode');
 			this.emit('switchProductionMode');
 		}
 		else if ('r' === key.name && key.shift === false) {
