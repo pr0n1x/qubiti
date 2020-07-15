@@ -173,8 +173,8 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 		// noinspection JSCheckFunctionSignatures
 		let templateFileContent = this.readFile(qubitiConfig.curDir+'/'+templateFilePath, ctx);
 		templateFileContent = templateFileContent.replace(
-			/(parent=['"])(@component)(['"])/,
-			'$1'+name+'/'+template+'$3'
+			/({%\s*bx_component[\s\S]+?)(parent=['"])(@component)(['"])/gm,
+			'$1$2'+name+'/'+template+'$4'
 		);
 		if( qubitiConfig.html.bx_component.debug_show_component_files ) {
 			gutil.log(gutil.colors.blue('render component file: '+templateFilePath));
