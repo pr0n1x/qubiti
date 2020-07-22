@@ -5,8 +5,11 @@ module.exports = {
 	precss: {
 		lang: 'less' // less | scss
 	},
-	browserSync: {
-		proxyLamp: 'default.loc'
+	browser_sync: {
+		proxy_lamp: {
+			host: 'default.loc',
+			port: 8008
+		}
 	},
 	dev_mode: {
 		// В dev_mode (conf.production == false)

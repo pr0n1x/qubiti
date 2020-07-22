@@ -129,11 +129,15 @@ let conf = {
 		// будут в разы (если не в 10-ки раз) быстрее.
 		js_bundles_no_watching: false
 	}
-	,browserSync: {
+	,browser_sync: {
 		server: './'
 		,index: '/index.html'
+		,port: 3000
 		,open: false
-		,proxyLamp: 'default.loc'
+		,proxy_lamp: {
+			host: 'default.loc',
+			port: 8008
+		}
 	}
 	,html: {
 		charset: 'UTF-8'
@@ -1583,19 +1587,17 @@ gulp.task('phpdev', function(done) {
 gulp.task('run-browser-sync', function() {
 	// noinspection JSUnusedGlobalSymbols
 	browserSync.init({
-		...conf.browserSync,
-		middleware: [
-			bsMiddleware.svgz(conf.curDir),
-			bsMiddleware.htmlCharset(conf.curDir, conf.html.charset)
-		]
+		...conf.browser_sync,
+		middleware: [ bsMiddleware.svgz(conf.curDir) ]
 	});
 });
 
 gulp.task('run-lamp-proxy', function() {
 	browserSync.init({
-		proxy: conf.proxyLamp,
-		port: '8008',
-		open: false
+		open: false,
+		port: conf.browser_sync.proxy_lamp.port,
+		proxy: conf.browser_sync.proxy_lamp.host,
+		middleware: [ bsMiddleware.lampCharset(conf.html.charset) ]
 	});
 });
 
