@@ -1,8 +1,6 @@
-const Path = require('path')
-	,iconv = require('iconv-lite');
-
 module.exports = {
 	svgz: curDir => {
+		const Path = require('path'), fs = require('fs');
 		/**
 		 * При обращении к svg-файлу
 		 * при наличии на ФС сжатой (svgz-версии)
@@ -45,6 +43,7 @@ module.exports = {
 		}
 	},
 	lampCharset: charset => {
+		const iconv = require('iconv-lite')
 		/**
 		 * Эта мидлварь используется для проксирования к lamp-стеку
 		 * для отладки интегрированнойго сайта например на мобильном телефоне.
