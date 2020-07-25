@@ -255,26 +255,28 @@ function replaceAssetsPlaceHolders(assets) {
 
 function injectData(conf, cssBundleFiles) {
 	return data(function(file) {
-
-		const currentFile = utils.getRelFilePath(file.path, `${conf.curDir}/${conf.html.base}`);
-		const currentDir = Path.dirname(currentFile);
-		const layoutDocumentRoot = Path.relative('/'+conf.html.dest, '/');
-		const layoutSiteTemplatePath = layoutDocumentRoot;
-		const layoutSiteDir = layoutDocumentRoot+'/'+conf.html.dest+'/';
-		const layoutImagesDir = layoutSiteTemplatePath+'/'+conf.images.common.dest;
-		const layoutComponentsBase = layoutSiteTemplatePath+'/components';
+		const __PAGE__ = utils.getRelFilePath(file.path, `${conf.curDir}/${conf.html.base}`);
+		const __NAME__ = Path.basename(__PAGE__);
+		const __PATH__ = Path.dirname(__PAGE__);
+		const SITE_TEMPLATE_PATH = Path.relative(`/${conf.html.dest}/${__PATH__}`, '/');
+		const DOCUMENT_ROOT = SITE_TEMPLATE_PATH;
+		// const SITE_DIR = `${DOCUMENT_ROOT}/${conf.html.dest}/`;
+		const SITE_DIR = (__PATH__ === '.') ? './' : Path.relative(`/${__PATH__}`, '/')+'/';
+		const IMG_DIR = SITE_TEMPLATE_PATH+'/'+conf.images.common.dest;
+		const CMP_BASE = SITE_TEMPLATE_PATH+'/components';
 		return {
 			PRODUCTION: conf.production,
 			HTML_CHARSET: 'UTF-8',//conf.html.charset,
 			HTML_SRC_BASE: conf.html.base,
 			CSS_BUNDLE_FILES: cssBundleFiles,
-			__PAGE__: currentFile,
-			__PATH__: currentDir,
-			DOC_ROOT: layoutDocumentRoot,
-			SITE_DIR: layoutSiteDir,
-			SITE_TEMPLATE_PATH: layoutSiteTemplatePath,
-			IMG_DIR: layoutImagesDir,
-			CMP_BASE: layoutComponentsBase
+			__PAGE__: __PAGE__,
+			__PATH__: __PATH__,
+			__NAME__: __NAME__,
+			DOC_ROOT: DOCUMENT_ROOT,
+			SITE_DIR: SITE_DIR,
+			SITE_TEMPLATE_PATH: SITE_TEMPLATE_PATH,
+			IMG_DIR: IMG_DIR,
+			CMP_BASE: CMP_BASE
 		};
 	});
 }

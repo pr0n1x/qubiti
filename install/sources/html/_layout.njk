@@ -14,18 +14,13 @@
 	<link type="text/css" rel="stylesheet" href="{{ SITE_TEMPLATE_PATH }}/css/bundle{{ suffix }}.css">
 	{% endif %}
 {%- endmacro -%}
-{%- macro getSiteDir() -%}
-	{%- if not DOC_ROOT -%}{%- set DOC_ROOT = ".." -%}{%- endif -%}
-	{%- if not SITE_DIR -%}{%- set SITE_DIR = DOC_ROOT ~ "/html/" -%}{%- endif -%}
-	{{ SITE_DIR }}
-{%- endmacro -%}
 
 {# put here your pages links #}
 {%- set pages = {
-	pages_list:			{title: "Список страниц", href: getSiteDir()~"pages.html"},
-	ui_kit:				{title: "UI Kit", href: getSiteDir()~"ui-kit.html"},
-	base:				{title: "Текстовая страница", href: getSiteDir()~"text.html"},
-	index:				{title: "Главная страница", href: getSiteDir()~"index.html"}
+	pages_list:			{title: "Список страниц", href: "pages.html"},
+	ui_kit:				{title: "UI Kit", href: "ui-kit.html"},
+	base:				{title: "Текстовая страница", href: "text.html"},
+	index:				{title: "Главная страница", href: "index.html"}
 } -%}
 
 {# put your code macros or/and data sets here
