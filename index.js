@@ -443,9 +443,9 @@ gulp.task('precss', function(done) {
 
 gulp.task('precss-main', function() {
 	return precssCommonPipe(
-		gulp.src(conf.precss.main.files, {dot: true}),
-		conf.precss.main.dest,
-		conf.verbose ? 'main precss:' : ''
+		gulp.src(conf.precss.main.files, {dot: true})
+			.pipe(getFilteredStream(gutil.env['filter']))
+		, conf.precss.main.dest, conf.verbose ? 'main precss:' : ''
 	);
 });
 gulp.task('precss-main-bundle', function(done) {
@@ -453,17 +453,17 @@ gulp.task('precss-main-bundle', function(done) {
 });
 gulp.task('precss-components', function() {
 	return precssCommonPipe(
-		gulp.src(conf.precss.components.files, {dot: true, base: '.'}),
-		'.',
-		conf.verbose ? 'component precss:' : ''
+		gulp.src(conf.precss.components.files, {dot: true, base: '.'})
+			.pipe(getFilteredStream(gutil.env['filter']))
+		, '.', conf.verbose ? 'component precss:' : ''
 	);
 });
 gulp.task('test-precss-one-file', function() {
 	return precssWatcher({path: conf.curDir+'/components/layout/menu/main-nav/style.scss'}, 'components');
 });
-function precssCommonPipe(stream, dest, debugTitle) {
+function precssCommonPipe(stream, dest, verboseTitle) {
 	let verboseMode = true;
-	if( 'string' != typeof(debugTitle) || '' === debugTitle ) {
+	if( 'string' != typeof(verboseTitle) || '' === verboseTitle ) {
 		verboseMode = false;
 	}
 
@@ -510,7 +510,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 		.pipe(tap(function(file) {
 			let parsedPath = utils.parsePath(file.relative);
 			if(verboseMode) {
-				gutil.log(debugTitle+' compile: '+gutil.colors.blue(
+				gutil.log(verboseTitle+' compile: '+gutil.colors.blue(
 					parsedPath.dirname+Path.sep
 					+'{ '+parsedPath.basename
 					+(('.css' === parsedPath.extname) ? '.'+conf.precss.lang : '')
@@ -533,7 +533,7 @@ function precssCommonPipe(stream, dest, debugTitle) {
 			.pipe(tap(function(file) {
 				if(verboseMode) {
 					let parsedPath = utils.parsePath(file.relative);
-					gutil.log(debugTitle+'  minify: '+gutil.colors.blue(
+					gutil.log(verboseTitle+'  minify: '+gutil.colors.blue(
 						parsedPath.dirname+Path.sep
 						+'{ '+Path.basename(parsedPath.basename, '.min')
 						+(('.map' === parsedPath.extname) ? '': '.css')
@@ -595,9 +595,23 @@ function precssWatcher(changedFile, target) {
 			if(conf.verbose) gutil.log('precss watcher: '+gutil.colors.blue(file));
 			break;
 		case 'components':
+			// Пока подразумеваем что стилевой файл компонента зависит
+			// от всех scss|less файлов расположенных внутри папки компонента.
+			// Хотя по идее нужно строить граф зависимостей такой же
+			// как в основных стилях.
+			const componentStylePath = Path.dirname(file).split(Path.sep);
+			const componentDirPath = (
+				(componentStylePath.length >= 7)
+					? componentStylePath.slice(0, 7)
+					: ((componentStylePath.length >= 4)
+						? componentStylePath.slice(0, 4)
+						: componentStylePath
+					)
+			).join(Path.sep);
+			//onsole.log('component precss watcher', componentDirPath);
 			dest = '.';
 			stream = gulp.src(
-				Path.dirname(file)+'/'+conf.precss.components.styleName,
+				componentDirPath+'/'+conf.precss.components.styleName,
 				{dot: true, base: '.'}
 			);
 			if(conf.verbose) gutil.log(
