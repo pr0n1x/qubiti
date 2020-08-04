@@ -16,6 +16,7 @@ const fs = require('fs')
 	,uglify = require('gulp-uglify-es').default
 	,debug = require('gulp-debug')
 	,rename = require('gulp-rename')
+	,minimatch = require('minimatch')
 	,utils = require('./utils')
 ;
 
@@ -32,7 +33,7 @@ class JsTools {
 		const conf = this.conf;
 		const name = Path.basename(src)
 			.replace(/^(?:_+|bundle\.)/, '')
-			.replace(/\.js$/, '');
+			.replace(/\.(?:js|jsm|jsx|vue)$/, '');
 		const filename = Path.basename(conf.js.bundle.dest)
 			.replace( /\*/, name );
 		const bfy = browserify({ entries: src },{
@@ -133,6 +134,13 @@ class JsTools {
 			? [conf.js.bundle.src] : conf.js.bundle.src;
 		srcList.forEach((src) => {
 			glob.sync(src).forEach((file) => {
+				if (gutil.env['filter']
+					&& gutil.env['filter'] !== Path.basename(file).replace(/\.(?:js|jsm|jsx|vue)$/, '')
+					&& !minimatch(file, gutil.env['filter'])
+				) {
+					gutil.log(gutil.colors.gray('Filtered/skipped bundle:')+' '+gutil.colors.blue(file));
+					return;
+				}
 				streams.add(this.createBundleStream(this.createBundler(file)));
 			});
 		});

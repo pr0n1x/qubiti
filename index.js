@@ -458,9 +458,6 @@ gulp.task('precss-components', function() {
 		, '.', conf.verbose ? 'component precss:' : ''
 	);
 });
-gulp.task('test-precss-one-file', function() {
-	return precssWatcher({path: conf.curDir+'/components/layout/menu/main-nav/style.scss'}, 'components');
-});
 function precssCommonPipe(stream, dest, verboseTitle) {
 	let verboseMode = true;
 	if( 'string' != typeof(verboseTitle) || '' === verboseTitle ) {
@@ -527,7 +524,7 @@ function precssCommonPipe(stream, dest, verboseTitle) {
 		.pipe(createBrowserSyncStream()) // update target unminified css-file and its map
 	;
 	if( conf.assets.min_css || conf.dev_mode.minify_useless_css ) {
-		const cssFilter = filter('**/*.css');
+		const cssFilter = filter('**/{,.*/**/}{,.*/**/}*.css');
 		stream = stream.pipe(cssFilter)
 			.pipe(sourcemaps.init({loadMaps: true}))
 			.pipe(tap(function(file) {
@@ -919,7 +916,8 @@ gulp.task('js-bundles', function() {
  * @order {6}
  */
 gulp.task('js-scripts', function() {
-	let stream = gulp.src(conf.js.scripts, {dot: true, base: '.'});
+	let stream = gulp.src(conf.js.scripts, {dot: true, base: '.'})
+		.pipe(getFilteredStream(gutil.env['filter']));
 	if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
 		stream = jsTools.addMinificationToJsStream(
 			stream,'.', conf.verbose ? 'js-script:' : ''
