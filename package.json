@@ -1,7 +1,7 @@
 {
   "name": "qubiti",
-  "description": "qubiti - Quick Bitrix Template Intagration",
-  "version": "0.2.0",
+  "description": "qubiti - Quick Bitrix Template Integration",
+  "version": "1.0.0",
   "license": "MIT",
   "readme": "nope",
   "repository": {
