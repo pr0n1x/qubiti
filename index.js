@@ -794,7 +794,7 @@ function parseCssBundleImportListAsync(afterParseCallback) {
 					let match = matchedString.match(rei);
 					if( match ) {
 						let importedCssFile = match[1]+'.css';
-						cssBundleFiles.push(conf.precss.main.dest+'/'+importedCssFile);
+						cssBundleFiles.push((conf.precss.main.dest+'/'+importedCssFile).replace('/./', '/'));
 						cssBundleFilesImport +='@import "'+importedCssFile+'";\n';
 					}
 				}
@@ -874,7 +874,7 @@ gulp.task('--html-nunjucks', function() {
 					// 		conf.html.charset
 					// 	).toString()
 					// }
-					// console.log('njk load', name, source);
+					//onsole.log('njk load', name, source);
 				});
 				nunjucksIncludeData.install(env);
 			}
@@ -1284,7 +1284,7 @@ function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
 	if( typeof(deepDependenciesIndex) != 'object' || null === deepDependenciesIndex ) {
 		deepDependenciesIndex = {};
 		if( conf.verbose ) {
-			gutil.log(gutil.colors.blue('Building the less import dependency tree'));
+			gutil.log(gutil.colors.blue('Building the precss import dependency tree'));
 		}
 	}
 
@@ -1377,7 +1377,6 @@ function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
 					catch(e) {
 						reject(e);
 					}
-					//onsole.log('# recursionResult', recursionResult);
 				}
 			}
 			_debug('| '.repeat(depth-1)+'@ RESOLVE'+(dependencyOf?' for '+dependencyOf:''));
