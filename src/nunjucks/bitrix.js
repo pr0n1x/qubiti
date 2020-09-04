@@ -44,7 +44,7 @@ class ComponentsAssets {
 		let fileHref = fileUrl.replace(/@components/,
 			( typeof(ctxNjk.CMP_BASE) != 'undefined' )
 				? ctxNjk.CMP_BASE : 'components'
-		);
+		).replace('\\', '/');
 		let filePath = ctxNjk.templatePath+'/'+(isMinified ? fileNameMin : fileName);
 		if( typeof(store[this.currentPage]) == 'undefined' ) {
 			store[this.currentPage] = [];
@@ -247,8 +247,8 @@ function replaceAssetsPlaceHolders(assets) {
 			}
 		}
 		file.contents = Buffer.from(file.contents.toString()
-			.replace(/<!--[\s]*@bx_component_assets_css[\s]*-->\n?/, cssOut)
-			.replace(/<!--[\s]*@bx_component_assets_js[\s]*-->\n?/, jsOut)
+			.replace(/<!--[\s]*@bx_component_assets_css[\s]*-->(?:\r?\n)?/, cssOut)
+			.replace(/<!--[\s]*@bx_component_assets_js[\s]*-->(?:\r?\n)?/, jsOut)
 		);
 	})
 }
@@ -257,11 +257,11 @@ function injectData(conf, cssBundleFiles) {
 	return data(function(file) {
 		const __PAGE__ = utils.getRelFilePath(file.path, `${conf.curDir}/${conf.html.base}`);
 		const __NAME__ = Path.basename(__PAGE__);
-		const __PATH__ = Path.dirname(__PAGE__);
-		const SITE_TEMPLATE_PATH = Path.relative(`/${conf.html.dest}/${__PATH__}`, '/');
+		const __PATH__ = Path.dirname(__PAGE__).replace(/\\/g, '/');
+		const SITE_TEMPLATE_PATH = Path.relative(`/${conf.html.dest}/${__PATH__}`, '/').replace(/\\/g, '/');
 		const DOCUMENT_ROOT = SITE_TEMPLATE_PATH;
 		// const SITE_DIR = `${DOCUMENT_ROOT}/${conf.html.dest}/`;
-		const SITE_DIR = (__PATH__ === '.') ? './' : Path.relative(`/${__PATH__}`, '/')+'/';
+		const SITE_DIR = (__PATH__ === '.') ? './' : Path.relative(`/${__PATH__}`, '/').replace(/\\/g, '/')+'/';
 		const IMG_DIR = SITE_TEMPLATE_PATH+'/'+conf.images.common.dest;
 		const CMP_BASE = SITE_TEMPLATE_PATH+'/components';
 		return {

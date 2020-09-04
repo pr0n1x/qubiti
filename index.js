@@ -1,5 +1,6 @@
 'use strict';
 module.exports = function(currentTemplateDir) {
+currentTemplateDir = currentTemplateDir.replace(/\\/g, '/');
 
 function loadLazy(m) {
 	let module;
@@ -480,9 +481,9 @@ function precssCommonPipe(stream, dest, verboseTitle) {
 			return fixedSource.fixed === source;
 		});
 		const srcFilePath = (fixedSource === undefined)
-			? Path.resolve(file.cwd, file.base, source)
-			: Path.resolve(fixedSource.cwd, fixedSource.base, fixedSource.source);
-		const destDir = Path.relative('/'+Path.dirname(destFilePath), '/'+Path.dirname(srcFilePath));
+			? Path.resolve(file.cwd, file.base, source).replace(/\\/g, '/')
+			: Path.resolve(fixedSource.cwd, fixedSource.base, fixedSource.source).replace(/\\/g, '/');
+		const destDir = Path.relative('/'+Path.dirname(destFilePath), '/'+Path.dirname(srcFilePath)).replace(/\\/g, '/');
 		const resultSrc =  (destDir === '')
 			? Path.basename(source)
 			: destDir+'/'+Path.basename(source);
@@ -517,8 +518,8 @@ function precssCommonPipe(stream, dest, verboseTitle) {
 			}
 		}))
 		.pipe(sourcemaps.write('.', {
-			includeContent: false
-			,mapSources: mapSourcesCompile
+			includeContent: false,
+			mapSources: mapSourcesCompile
 		}))
 		.pipe(gulp.dest(dest))
 		.pipe(createBrowserSyncStream()) // update target unminified css-file and its map
@@ -662,6 +663,19 @@ gulp.task('css-bundle', function() {
 				);
 			}
 
+			function fixSourceMapOnWindows() {
+				return tap(function(file) {
+					if (Path.extname(file.relative) === '.map') {
+						file.contents = Buffer.from(
+							file.contents
+								.toString()
+								.replace(/\r\n/g, '\n')
+								.replace(/\\r\\n/g, '\\n')
+						);
+					}
+				});
+			}
+
 			if(Array.isArray(cssBundleFiles) && cssBundleFiles.length > 0) {
 				let bundleStream = gulp.src(cssBundleFiles, {dot: true})
 					.pipe(conf.verbose ? debug({title: 'css bundle file:', showCount: false}) : gutil.noop())
@@ -684,7 +698,7 @@ gulp.task('css-bundle', function() {
 							.replace(/\/\//g, '/')
 							.replace(/^\//, '')
 							.replace(/\/$/, '');
-						let stepsToRootFromDest = Path.relative('/'+dest, '/');
+						let stepsToRootFromDest = Path.relative('/'+dest, '/').replace(/\\/g, '/');
 						let urlPrefix = stepsToRootFromDest+'/'+cssSrcDir+'/';
 
 						file.contents = Buffer.from(
@@ -715,6 +729,7 @@ gulp.task('css-bundle', function() {
 						)
 					)
 					.pipe(sourcemaps.write('./'))
+					.pipe(fixSourceMapOnWindows())
 					.pipe(gulp.dest(conf.precss.main.dest))
 					.pipe(tap(function(file) {
 						let relFilePath = getRelFilePath(file.path);
@@ -727,7 +742,7 @@ gulp.task('css-bundle', function() {
 								);
 								return;
 							}
-							let dest = Path.dirname(relFilePath);
+							let dest = Path.dirname(relFilePath).replace(/\\/g, '/');
 							stream.add(gulp.src(relFilePath)
 								.pipe(sourcemaps.init({loadMaps: true}))
 								.pipe(rename({extname: '.min.css'}))
@@ -744,6 +759,7 @@ gulp.task('css-bundle', function() {
 									)
 								)
 								.pipe(sourcemaps.write('./'))
+								.pipe(fixSourceMapOnWindows())
 								.pipe(gulp.dest(dest))
 							);
 						}
@@ -794,7 +810,10 @@ function parseCssBundleImportListAsync(afterParseCallback) {
 					let match = matchedString.match(rei);
 					if( match ) {
 						let importedCssFile = match[1]+'.css';
-						cssBundleFiles.push((conf.precss.main.dest+'/'+importedCssFile).replace('/./', '/'));
+						cssBundleFiles.push(
+							(conf.precss.main.dest+'/'+importedCssFile)
+								.replace(/(?:\/\.\/|\\)/g, '/')
+						);
 						cssBundleFilesImport +='@import "'+importedCssFile+'";\n';
 					}
 				}
@@ -1042,7 +1061,7 @@ function configuredImageMin() {
 gulp.task('images:main', function() {
 	function verbose(verboseTitle) {
 		return through2.obj((file, enc, cb) => {
-			const relBase = Path.relative(file.cwd, file.base);
+			const relBase = Path.relative(file.cwd, file.base).replace(/\\/g, '/');
 			gutil.log(`${verboseTitle}: `+gutil.colors.blue(
 				relBase !== conf.images.common.dest
 					? `{ ${relBase} -> ${conf.images.common.dest} }/${file.relative}`
@@ -1329,8 +1348,8 @@ function parsePreCssDependencies(src, treePath, deepDependenciesIndex) {
 						importFilePath += '.'+conf.precss.lang;
 					}
 					let dep = /^\./.test(importFilePath)
-						? Path.resolve(dir, importFilePath)
-						: Path.resolve(conf.curDir, importFilePath);
+						? Path.resolve(dir, importFilePath).replace(/\\/g, '/')
+						: Path.resolve(conf.curDir, importFilePath).replace(/\\/g, '/');
 					_debug('| '.repeat(depth+1)+'- import:', dep);
 					dependencies[file.path].push(dep);
 					if (conf.precss.lang === 'scss') {

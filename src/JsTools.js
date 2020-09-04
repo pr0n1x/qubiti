@@ -102,6 +102,8 @@ class JsTools {
 					.toJSON()
 					.replace(new RegExp(''+conf.curDir+'/', 'gim'), '../')
 					.replace(new RegExp('"js/([a-zA-Z0-9\\-_.]+)/', 'gim'), '"../js/$1/')
+					.replace(/\r\n/g, '\n')
+					.replace(/\\r\\n/g, '\\n')
 			);
 			let content = convertSourceMap.removeComments(src).trim()
 				+ '\n//# sourceMappingURL=' + Path.basename(mapFilePath);

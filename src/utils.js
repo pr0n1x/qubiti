@@ -34,7 +34,7 @@ function getRelFilePath(filePath, currentDir) {
 		+'\n    Во избежание неожиданного поведения сборщика операция не допускается.';
 	}
 	filePath = Path.resolve(currentDir, filePath);
-	return substr(filePath, currentDir.length+1);
+	return substr(filePath, currentDir.length+1).replace(/\\/g, '/');
 }
 
 function defineReferenceProperty(referenceGetter) {
