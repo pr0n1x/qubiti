@@ -3,9 +3,9 @@
     ["@babel/plugin-transform-runtime"],
     ["@babel/plugin-transform-modules-commonjs"],
     ["module-resolver", {
-      "root": ["./js/src/", "js/vendor/", "./node_modules/"],
+      "root": ["./sources/js/", "./sources/modules/", "./node_modules/"],
       "alias": {
-        "test": "./test"
+        "test": "./sources/test"
       }
     }]
   ]
