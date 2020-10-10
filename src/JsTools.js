@@ -4,7 +4,7 @@ const fs = require('fs')
 	,Path = require('path')
 	,convertSourceMap = require('convert-source-map')
 	,vsource = require('vinyl-source-stream')
-	,gbuffer = require('gulp-buffer')
+	,vbuffer = require('vinyl-buffer')
 	,gutil = require('gulp-util')
 	//,watchify = require('watchify')
 	,plumber = require('gulp-plumber')
@@ -54,15 +54,15 @@ class JsTools {
 		if(conf.verbose) gutil.log('started building js-bundle '+gutil.colors.blue('"'+bundle.name+'"'));
 		this.bundles[bundle.name] = bundle;
 		let stream = bundle.bfy.bundle()
+			.on('error', utils.swallowError)
 			.pipe(vsource(bundle.filename))
 			.pipe(plumber())
-			.pipe(gbuffer())
-			.on('error', utils.swallowError)
-			.pipe(this.externalizeBrowserifySourceMap(bundle.dest))
+			.pipe(vbuffer())
 			.pipe(tap(() => {
 				if (conf.verbose) gutil.log('js-bundle "'+bundle.name+'": '
 					+gutil.colors.blue(bundle.src+' -> '+bundle.dest+Path.sep+bundle.filename));
 			}))
+			.pipe(this.externalizeBrowserifySourceMap(bundle.dest))
 			.pipe(this.gulp.dest(bundle.dest));
 		if( conf.assets.min_js || conf.dev_mode.minify_useless_js ) {
 			stream = this.addMinificationToJsStream(stream, Path.dirname(conf.js.bundle.dest))
