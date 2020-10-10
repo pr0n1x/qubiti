@@ -465,38 +465,6 @@ function precssCommonPipe(stream, dest, verboseTitle) {
 		verboseMode = false;
 	}
 
-	function mapSourcesCompile(sourcePath, file) {
-		return mapSources(sourcePath, file, 'compile')
-	}
-	function mapSourcesMinify(sourcePath, file) {
-		return mapSources(sourcePath, file, 'minify')
-	}
-	// noinspection JSUnusedLocalSymbols
-	function mapSources(source, file, phase) {
-		const destFilePath = Path.resolve(file.cwd, /*file.base*/dest, file.relative);
-		if ( !file.hasOwnProperty('fixedSources') ) {
-			file.fixedSources = [];
-		}
-		const fixedSource = file.fixedSources.find(function(fixedSource) {
-			return fixedSource.fixed === source;
-		});
-		const srcFilePath = (fixedSource === undefined)
-			? Path.resolve(file.cwd, file.base, source).replace(/\\/g, '/')
-			: Path.resolve(fixedSource.cwd, fixedSource.base, fixedSource.source).replace(/\\/g, '/');
-		const destDir = Path.relative('/'+Path.dirname(destFilePath), '/'+Path.dirname(srcFilePath)).replace(/\\/g, '/');
-		const resultSrc =  (destDir === '')
-			? Path.basename(source)
-			: destDir+'/'+Path.basename(source);
-
-		file.fixedSources.push({
-			cwd: file.cwd,
-			base: file.base,
-			source: source,
-			fixed: resultSrc
-		});
-		return resultSrc;
-	}
-
 	stream = stream
 		.pipe(plumber())
 		.pipe(rename({extname: '.'+conf.precss.lang}))
@@ -519,7 +487,7 @@ function precssCommonPipe(stream, dest, verboseTitle) {
 		}))
 		.pipe(sourcemaps.write('.', {
 			includeContent: false,
-			mapSources: mapSourcesCompile
+			mapSources: utils.fixMapSources(dest)
 		}))
 		.pipe(gulp.dest(dest))
 		.pipe(createBrowserSyncStream()) // update target unminified css-file and its map
@@ -543,8 +511,8 @@ function precssCommonPipe(stream, dest, verboseTitle) {
 			.pipe(postcss([cssnano({zindex: false /*трудно понять зачем нужна такая фича, но мешает она изрядно*/})]))
 			.pipe(rename({extname: '.min.css'}))
 			.pipe(sourcemaps.write('.', {
-				includeContent: false
-				,mapSources: mapSourcesMinify
+				includeContent: false,
+				mapSources: utils.fixMapSources(dest)
 			}))
 			.pipe(gulp.dest(dest))
 			.pipe(createBrowserSyncStream()) // update .min.css, .min.css.map files

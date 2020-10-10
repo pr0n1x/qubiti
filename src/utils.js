@@ -123,6 +123,33 @@ function swallowError(error) {
 	this.emit('end');
 }
 
+function fixMapSources(dest) {
+	return function (source, file) {
+		const destFilePath = Path.resolve(file.cwd, /*file.base*/dest, file.relative);
+		if (!file.hasOwnProperty('fixedSources')) {
+			file.fixedSources = [];
+		}
+		const fixedSource = file.fixedSources.find(function (fixedSource) {
+			return fixedSource.fixed === source;
+		});
+		const srcFilePath = (fixedSource === undefined)
+			? Path.resolve(file.cwd, file.base, source).replace(/\\/g, '/')
+			: Path.resolve(fixedSource.cwd, fixedSource.base, fixedSource.source).replace(/\\/g, '/');
+		const destDir = Path.relative('/' + Path.dirname(destFilePath), '/' + Path.dirname(srcFilePath)).replace(/\\/g, '/');
+		const resultSrc = (destDir === '')
+			? Path.basename(source)
+			: destDir + '/' + Path.basename(source);
+
+		file.fixedSources.push({
+			cwd: file.cwd,
+			base: file.base,
+			source: source,
+			fixed: resultSrc
+		});
+		return resultSrc;
+	}
+}
+
 
 module.exports.substr = substr;
 module.exports.getRelFilePath = getRelFilePath;
@@ -131,3 +158,4 @@ module.exports.dereferencePlaceHolder = dereferencePlaceHolder;
 module.exports.parseArgAsBool = parseArgAsBool;
 module.exports.parsePath = parsePath;
 module.exports.swallowError = swallowError;
+module.exports.fixMapSources = fixMapSources;

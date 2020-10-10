@@ -124,7 +124,8 @@ class JsTools {
 			.pipe(verboseMode ? debug({title: debugTitle}) : gutil.noop())
 			.pipe(rename({extname: '.min.js'}))
 			.pipe(sourcemaps.write('.', {
-				includeContent: false
+				includeContent: false,
+				mapSources: utils.fixMapSources(dest)
 			}))
 			.pipe(this.gulp.dest(dest));
 	}
