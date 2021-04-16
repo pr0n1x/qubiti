@@ -205,7 +205,7 @@ let conf = {
 			]
 		}
 		,components: {
-			 styleName: 'style.@lang'
+			 styleName: 'style{,.*}.@lang'
 			,files: [
 				 'components/*/*/{*,.*}/@styleName'
 				,'components/*/*/{*,.*}/*/*/{*,.*}/@styleName'
@@ -859,6 +859,9 @@ gulp.task('--html-nunjucks', function() {
 				env.addExtension('BitrixComponentAssetsCssPlaceHolder', new nunjucksBitrix.ComponentAssetsCssPlaceHolder());
 				// noinspection JSUnresolvedFunction
 				env.addExtension('BitrixComponentAssetsJsPlaceHolder', new nunjucksBitrix.ComponentAssetsJsPlaceHolder());
+				// noinspection JSUnresolvedFunction
+				env.addExtension('BitrixAddAsset', new nunjucksBitrix.AddAsset(njkAssets));
+
 				env.on('load', function(name, source, loader) {
 					// if (conf.html.charset !== 'UTF-8') {
 					// 	source.src = iconv.decode(

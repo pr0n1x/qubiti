@@ -59,7 +59,6 @@ class ComponentsAssets {
 				fileExistsMark = '[+]';
 			}
 			else {
-				debugger;
 				fileUrl = ctxNjk.templateUrl+'/'+fileName;
 				fileHref = fileUrl.replace(/@components/,
 					( typeof(ctxNjk.CMP_BASE) != 'undefined' )
@@ -93,6 +92,11 @@ class ComponentsAssets {
 		));
 		if( fileExists ) {
 			store[this.currentPage].push(fileHref);
+		} else {
+			'bx_component asset not found: '+assetType+(isMinified?'.min':'')+': '
+			+fileExistsMark
+			+' "'+fileUrl.replace(/@components\//, '')+'"'
+			+' (in file '+this.currentPage+')'
 		}
 	}
 }
@@ -200,6 +204,38 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 	};
 }
 
+class AddAsset {
+	/**
+	 * @param {ComponentsAssets} njkAsset
+	 */
+	constructor(njkAsset) {
+		this.tags = ['bx_add_asset'];
+		this.parse = parseNunjucksTag;
+		this.njkAsset = njkAsset;
+	}
+
+	bx_add_asset(context, assetPath) {
+		//console.log('context, args', context, args);
+		if (typeof assetPath !== 'string') {
+			throw new Error('bx_add_asset: argument should be a string');
+		}
+		const pathMatches = assetPath.match(/^((?:[\w\-.]+\/|\.\/|\.\.\/)*[\w\-.]+)\.(\w+)$/);
+		let assetType = undefined;
+		if (pathMatches) {
+			switch(['js', 'css', 'scss', 'less'].indexOf(pathMatches[2])) {
+				case 0: assetType = 'js'; break;
+				case 1:
+				case 2:
+				case 3: assetType = 'css'; break;
+			}
+		}
+		if (!assetType) {
+			throw new Error(`bx_add_asset: Unknown asset type for path: "${assetPath}"`);
+		}
+		this.njkAsset.add(assetType, pathMatches[1], context.ctx);
+	}
+}
+
 /**
  * @constructor
  */
@@ -285,5 +321,6 @@ module.exports.ComponentTag = ComponentTag;
 module.exports.ComponentsAssets = ComponentsAssets;
 module.exports.ComponentAssetsCssPlaceHolder = ComponentAssetsCssPlaceHolder;
 module.exports.ComponentAssetsJsPlaceHolder = ComponentAssetsJsPlaceHolder;
+module.exports.AddAsset = AddAsset;
 module.exports.replaceAssetsPlaceHolders = replaceAssetsPlaceHolders;
 module.exports.injectData = injectData;
