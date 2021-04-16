@@ -1,0 +1,24 @@
+{
+  "name": "qubiti",
+  "description": "QuBiTI - Quick Bitrix Template Integration",
+  "version": "1.0.3",
+  "license": "MIT",
+  "readme": "nope",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pr0n1x/qubiti.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "gulp": "gulp"
+  },
+  "dependencies": {
+    "extend": "^3.0.2",
+    "gulp": "^4.0.2",
+    "gulp-data": "^1.3.1",
+    "gulp-tap": "^2.0.0",
+    "gulp-util": "^3.0.8",
+    "nunjucks": "^3.2.3"
+  },
+  "devDependencies": {}
+}
