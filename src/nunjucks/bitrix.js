@@ -46,6 +46,7 @@ class ComponentsAssets {
 				? ctxNjk.CMP_BASE : 'components'
 		).replace('\\', '/');
 		let filePath = ctxNjk.templatePath+'/'+(isMinified ? fileNameMin : fileName);
+
 		if( typeof(store[this.currentPage]) == 'undefined' ) {
 			store[this.currentPage] = [];
 		}
@@ -57,8 +58,7 @@ class ComponentsAssets {
 			if( fs.existsSync(filePath) ) {
 				fileExists = true;
 				fileExistsMark = '[+]';
-			}
-			else {
+			} else {
 				fileUrl = ctxNjk.templateUrl+'/'+fileName;
 				fileHref = fileUrl.replace(/@components/,
 					( typeof(ctxNjk.CMP_BASE) != 'undefined' )
@@ -73,8 +73,7 @@ class ComponentsAssets {
 					fileExistsMark = '[~]';
 				}
 			}
-		}
-		else {
+		} else {
 			if( store[this.currentPage].indexOf(fileHref) !== -1 ) {
 				return;
 			}
@@ -92,11 +91,6 @@ class ComponentsAssets {
 		));
 		if( fileExists ) {
 			store[this.currentPage].push(fileHref);
-		} else {
-			'bx_component asset not found: '+assetType+(isMinified?'.min':'')+': '
-			+fileExistsMark
-			+' "'+fileUrl.replace(/@components\//, '')+'"'
-			+' (in file '+this.currentPage+')'
 		}
 	}
 }
@@ -190,7 +184,7 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 
 	this.readFile = function(filePath, rootCtx) {
 		try {
-			// используем файловый лоадер, встроенный в nunjucks
+			// используем файловый loader, встроенный в nunjucks
 			let fileObj = nunjucksEnvironment.loaders[0].getSource(filePath);
 			if (fileObj) {
 				return fileObj.src;
@@ -262,23 +256,25 @@ function ComponentAssetsJsPlaceHolder() {
 
 function replaceAssetsPlaceHolders(assets) {
 	return tap(function(file) {
+		const currentPage = Path.relative(file.cwd, file.path)
+			.replace(/\.html$/, '.njk');
 		let cssOut = '<!-- @bx_component_assets_css -->\n';
-		if( null !== assets.currentPage
-			&& typeof(assets.css[assets.currentPage]) != 'undefined'
-			&& assets.css[assets.currentPage].length > 0
+		if( currentPage
+			&& Array.isArray(assets.css[currentPage])
+			&& assets.css[currentPage].length > 0
 		) {
-			for(let iFile=0; iFile < assets.css[assets.currentPage].length; iFile++) {
-				let href = assets.css[assets.currentPage][iFile];
+			for(let iFile=0; iFile < assets.css[currentPage].length; iFile++) {
+				let href = assets.css[currentPage][iFile];
 				cssOut += '<link type="text/css" rel="stylesheet" href="'+href+'">\n';
 			}
 		}
 		let jsOut = '<!-- @bx_component_assets_js -->\n';
-		if( null !== assets.currentPage
-			&& typeof(assets.js[assets.currentPage]) != 'undefined'
-			&& assets.js[assets.currentPage].length > 0
+		if( currentPage
+			&& Array.isArray(assets.js[currentPage])
+			&& assets.js[currentPage].length > 0
 		) {
-			for(let iFile=0; iFile < assets.js[assets.currentPage].length; iFile++) {
-				let href = assets.js[assets.currentPage][iFile];
+			for(let iFile=0; iFile < assets.js[currentPage].length; iFile++) {
+				let href = assets.js[currentPage][iFile];
 				jsOut += '<script type="text/javascript" src="'+href+'"></script>\n';
 			}
 		}
