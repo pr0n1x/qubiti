@@ -834,9 +834,6 @@ gulp.task('--html-nunjucks', function() {
 	let stream = gulp.src(conf.html.pages)
 		.pipe(plumber())
 		.pipe(conf.verbose ? debug({title: 'compile page: '}) : gutil.noop())
-		.pipe(tap(function(file) {
-			njkAssets.currentPage = getRelFilePath(file.path);
-		}));
 	if (conf.html.charset !== 'UTF-8') {
 		stream = stream.pipe(tap(function(file) {
 			file.contents = Buffer.from(iconv.decode(file.contents, conf.html.charset));

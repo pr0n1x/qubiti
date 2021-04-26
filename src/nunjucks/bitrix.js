@@ -16,7 +16,6 @@ class ComponentsAssets {
 
 	constructor(conf) {
 		this.curDir = conf.curDir;
-		this.currentPage = null;
 		this.js = [];
 		this.css = [];
 		this.debugAssets = !!conf.html.bx_component.debug_assets;
@@ -47,12 +46,17 @@ class ComponentsAssets {
 		).replace('\\', '/');
 		let filePath = ctxNjk.templatePath+'/'+(isMinified ? fileNameMin : fileName);
 
-		if( typeof(store[this.currentPage]) == 'undefined' ) {
-			store[this.currentPage] = [];
+		if (!ctxNjk.__PAGE__) {
+			throw new Error('add bx_component asset error: current qubiti nunjucks page is unknown');
+		}
+		const currentPage = `${ctxNjk.HTML_SRC_BASE}/${ctxNjk.__PAGE__}`;
+
+		if( typeof(store[currentPage]) == 'undefined' ) {
+			store[currentPage] = [];
 		}
 
 		if( isMinified ) {
-			if( store[this.currentPage].indexOf(fileHref) !== -1 ) {
+			if( store[currentPage].indexOf(fileHref) !== -1 ) {
 				return;
 			}
 			if( fs.existsSync(filePath) ) {
@@ -65,7 +69,7 @@ class ComponentsAssets {
 						? ctxNjk.CMP_BASE : 'components'
 				);
 				filePath = ctxNjk.templatePath+'/'+fileName;
-				if( store[this.currentPage].indexOf(fileHref) !== -1 ) {
+				if( store[currentPage].indexOf(fileHref) !== -1 ) {
 					return;
 				}
 				if( fs.existsSync(filePath) ) {
@@ -74,7 +78,7 @@ class ComponentsAssets {
 				}
 			}
 		} else {
-			if( store[this.currentPage].indexOf(fileHref) !== -1 ) {
+			if( store[currentPage].indexOf(fileHref) !== -1 ) {
 				return;
 			}
 			if( fs.existsSync(filePath) ) {
@@ -86,11 +90,11 @@ class ComponentsAssets {
 		if( this.debugAssets ) gutil.log(gutil.colors.blue(
 			'bx_component asset '+assetType+(isMinified?'.min':'')+': '
 			+fileExistsMark
-			+' "'+fileUrl.replace(/@components\//, '')+'"'
-			+' (in file '+this.currentPage+')'
+			+` "${fileUrl.replace(/@components\//, '')}"`
+			+`, page: "${currentPage}"`
 		));
 		if( fileExists ) {
-			store[this.currentPage].push(fileHref);
+			store[currentPage].push(fileHref);
 		}
 	}
 }
@@ -125,6 +129,15 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 	this.tags = ['bx_component'];
 	this.parse = parseNunjucksTag;
 	this.bx_component = function(context, args) {
+		if (!context.ctx || !context.ctx.__PAGE__) {
+			// Если в контексте нет компилируемой страницы,
+			// значит файл был подключен через тег {% import %},
+			// а не, например, {% include %}.
+			// Это значит, что нет никакого смысла выполнять компоненты,
+			// поскольку программисту надо просто
+			// получить переменные и макросы из файла
+			return '';
+		}
 		if( 'string' != typeof(args.name) ) {
 			throw 'component name not set';
 		}
@@ -154,9 +167,6 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 			throw 'bx_component error: component "'+name+'/'+template+'" template file not found'
 			+' ('+templateFilePath+')';
 		}
-		if (null === assets.currentPage) {
-			throw 'bx_component error: current nunjucks template unknown';
-		}
 
 		assets.add('js', 'script', ctx);
 		assets.add('css', 'style', ctx);
@@ -178,7 +188,11 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 			gutil.log(gutil.colors.blue('render component file: '+templateFilePath));
 		}
 		return new nunjucks.runtime.SafeString(
-			nunjucksEnvironment.renderString(templateFileContent, ctx)
+			nunjucksEnvironment.renderString(
+				templateFileContent, ctx,
+				{ path: templateFilePath },
+				// function() { debugger; }
+			)
 		);
 	};
 
@@ -212,6 +226,9 @@ class AddAsset {
 		//console.log('context, args', context, args);
 		if (typeof assetPath !== 'string') {
 			throw new Error('bx_add_asset: argument should be a string');
+		}
+		if (!context.ctx || !context.ctx.__PAGE__) {
+			throw new Error('{% bx_add_asset %}: error: current qubiti nunjucks page is unknown');
 		}
 		const pathMatches = assetPath.match(/^((?:[\w\-.]+\/|\.\/|\.\.\/)*[\w\-.]+)\.(\w+)$/);
 		let assetType = undefined;
@@ -258,6 +275,9 @@ function replaceAssetsPlaceHolders(assets) {
 	return tap(function(file) {
 		const currentPage = Path.relative(file.cwd, file.path)
 			.replace(/\.html$/, '.njk');
+		if( assets.debugAssets ) gutil.log(
+			'commit assets to page '+gutil.colors.blue(`"${currentPage}"`)
+		);
 		let cssOut = '<!-- @bx_component_assets_css -->\n';
 		if( currentPage
 			&& Array.isArray(assets.css[currentPage])
