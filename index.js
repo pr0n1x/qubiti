@@ -829,7 +829,7 @@ gulp.task('--html-nunjucks', function() {
 	const FileSystemLoader = require('./src/nunjucks/node-loaders').FileSystemLoader;
 	// noinspection JSUnresolvedVariable
 	nunjucksRender.nunjucks.configure();
-	njkAssets = new nunjucksBitrix.ComponentsAssets(conf);
+	njkAssets = new nunjucksBitrix.AssetStorage(conf);
 	// noinspection JSUnusedGlobalSymbols
 	let stream = gulp.src(conf.html.pages)
 		.pipe(plumber())

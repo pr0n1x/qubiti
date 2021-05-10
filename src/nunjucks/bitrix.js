@@ -8,11 +8,7 @@ const fs = require('fs')
 	,nunjucks = require('nunjucks')
 ;
 
-/**
- * TODO: write new tag {% bx_asset_js  "path/to/file.js"  %}
- * TODO: write new tag {% bx_asset_css "path/to/file.css" %}
- */
-class ComponentsAssets {
+class AssetStorage {
 
 	constructor(conf) {
 		this.curDir = conf.curDir;
@@ -23,7 +19,12 @@ class ComponentsAssets {
 		this.useMinifiedJs = !!conf.html.bx_component.use_minified_js;
 	}
 
-	add(assetType, assetName, ctxNjk) {
+	add(assetPath, ctxNjk) {
+		if (!ctxNjk.__PAGE__) {
+			throw new Error('bx_add_asset error: current qubiti nunjucks page is unknown');
+		}
+		const assetNameDotSplit = assetPath.split('.');
+		const assetType = assetNameDotSplit[assetNameDotSplit.length - 1];
 		switch (assetType) {
 			case 'css':
 			case 'js':
@@ -32,69 +33,59 @@ class ComponentsAssets {
 				throw new Error('Argument "assetType" must be "css" or "js"');
 		}
 		const store = this[assetType];
-		const fileName = assetName+'.'+assetType;
-		const fileNameMin = assetName+'.min.'+assetType;
-		let isMinified = (assetType === 'css')
-			? this.useMinifiedCss
-			: this.useMinifiedJs;
+		const isForcedMin = (assetNameDotSplit.length > 2 && assetNameDotSplit[assetNameDotSplit.length-2] === 'min');
+		const isMinified = (
+			isForcedMin
+			|| (
+				(assetType === 'css')
+					? this.useMinifiedCss
+					: this.useMinifiedJs
+			)
+		);
+		let filePath = (isMinified && !isForcedMin)
+			? assetNameDotSplit.slice(0, -1).join('.')+'.min.'+assetType
+			: assetPath;
 		let fileExists = false;
 		let fileExistsMark = '[-]';
-		let fileUrl = ctxNjk.templateUrl+'/'+(isMinified ? fileNameMin : fileName);
-		let fileHref = fileUrl.replace(/@components/,
-			( typeof(ctxNjk.CMP_BASE) != 'undefined' )
-				? ctxNjk.CMP_BASE : 'components'
-		).replace('\\', '/');
-		let filePath = ctxNjk.templatePath+'/'+(isMinified ? fileNameMin : fileName);
+		let fileUrl = ctxNjk.SITE_TEMPLATE_PATH+'/'+filePath;
 
-		if (!ctxNjk.__PAGE__) {
-			throw new Error('add bx_component asset error: current qubiti nunjucks page is unknown');
-		}
 		const currentPage = `${ctxNjk.HTML_SRC_BASE}/${ctxNjk.__PAGE__}`;
 
 		if( typeof(store[currentPage]) == 'undefined' ) {
 			store[currentPage] = [];
 		}
 
-		if( isMinified ) {
-			if( store[currentPage].indexOf(fileHref) !== -1 ) {
-				return;
-			}
-			if( fs.existsSync(filePath) ) {
-				fileExists = true;
-				fileExistsMark = '[+]';
-			} else {
-				fileUrl = ctxNjk.templateUrl+'/'+fileName;
-				fileHref = fileUrl.replace(/@components/,
-					( typeof(ctxNjk.CMP_BASE) != 'undefined' )
-						? ctxNjk.CMP_BASE : 'components'
-				);
-				filePath = ctxNjk.templatePath+'/'+fileName;
-				if( store[currentPage].indexOf(fileHref) !== -1 ) {
-					return;
-				}
-				if( fs.existsSync(filePath) ) {
-					fileExists = true;
-					fileExistsMark = '[~]';
-				}
-			}
+		if( store[currentPage].indexOf(fileUrl) !== -1 ) {
+			return;
+		}
+		if( fs.existsSync(filePath) ) {
+			fileExists = true;
+			fileExistsMark = '[+]';
 		} else {
-			if( store[currentPage].indexOf(fileHref) !== -1 ) {
+			const filePathMinInverse = isMinified
+				? (isForcedMin
+					? assetNameDotSplit.slice(0, -2).join('.')+'.'+assetType
+					: assetPath
+				)
+				: assetNameDotSplit.slice(0, -1).join('.')+'.min.'+assetType;
+			const fileUrlMinInverse = ctxNjk.SITE_TEMPLATE_PATH+'/'+filePathMinInverse;
+			if( store[currentPage].indexOf(fileUrlMinInverse) !== -1 ) {
 				return;
 			}
-			if( fs.existsSync(filePath) ) {
+			if( fs.existsSync(filePathMinInverse) ) {
 				fileExists = true;
-				fileExistsMark = '[+]';
+				fileExistsMark = '[~]';
+				filePath = filePathMinInverse;
+				fileUrl = fileUrlMinInverse;
 			}
 		}
 
 		if( this.debugAssets ) gutil.log(gutil.colors.blue(
-			'bx_component asset '+assetType+(isMinified?'.min':'')+': '
-			+fileExistsMark
-			+` "${fileUrl.replace(/@components\//, '')}"`
-			+`, page: "${currentPage}"`
+			'bx_component asset: '
+			+`${fileExistsMark} "${filePath}", page: "${currentPage}"`
 		));
 		if( fileExists ) {
-			store[currentPage].push(fileHref);
+			store[currentPage].push(fileUrl);
 		}
 	}
 }
@@ -121,7 +112,7 @@ function parseNunjucksTag(parser, nodes, lexer) {
  * 						%}
  *
  * @param {Object} qubitiConfig
- * @param {ComponentsAssets} assets
+ * @param {AssetStorage} assets
  * @param nunjucksEnvironment
  * @constructor
  */
@@ -168,8 +159,8 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 			+' ('+templateFilePath+')';
 		}
 
-		assets.add('js', 'script', ctx);
-		assets.add('css', 'style', ctx);
+		assets.add(`${ctx.templatePath}/script.js`, ctx);
+		assets.add(`${ctx.templatePath}/style.css`, ctx);
 
 		// add params
 		ctx.args = extend({}, args);
@@ -187,6 +178,7 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 		if( qubitiConfig.html.bx_component.debug_show_component_files ) {
 			gutil.log(gutil.colors.blue('render component file: '+templateFilePath));
 		}
+		// noinspection JSUnresolvedFunction
 		return new nunjucks.runtime.SafeString(
 			nunjucksEnvironment.renderString(
 				templateFileContent, ctx,
@@ -196,7 +188,7 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 		);
 	};
 
-	this.readFile = function(filePath, rootCtx) {
+	this.readFile = function(filePath, _rootCtx) {
 		try {
 			// используем файловый loader, встроенный в nunjucks
 			let fileObj = nunjucksEnvironment.loaders[0].getSource(filePath);
@@ -214,7 +206,7 @@ function ComponentTag(qubitiConfig, assets, nunjucksEnvironment) {
 
 class AddAsset {
 	/**
-	 * @param {ComponentsAssets} njkAsset
+	 * @param {AssetStorage} njkAsset
 	 */
 	constructor(njkAsset) {
 		this.tags = ['bx_add_asset'];
@@ -230,10 +222,13 @@ class AddAsset {
 		if (!context.ctx || !context.ctx.__PAGE__) {
 			throw new Error('{% bx_add_asset %}: error: current qubiti nunjucks page is unknown');
 		}
-		const pathMatches = assetPath.match(/^((?:[\w\-.]+\/|\.\/|\.\.\/)*[\w\-.]+)\.(\w+)$/);
+
+		const fileDir = Path.dirname(assetPath);
+		const fileName = Path.basename(assetPath);
+		const fileNameDotSplit = fileName.split('.');
 		let assetType = undefined;
-		if (pathMatches) {
-			switch(['js', 'css', 'scss', 'less'].indexOf(pathMatches[2])) {
+		if (fileNameDotSplit.length > 1) {
+			switch(['js', 'css', 'scss', 'less'].indexOf(fileNameDotSplit[fileNameDotSplit.length-1])) {
 				case 0: assetType = 'js'; break;
 				case 1:
 				case 2:
@@ -243,7 +238,10 @@ class AddAsset {
 		if (!assetType) {
 			throw new Error(`bx_add_asset: Unknown asset type for path: "${assetPath}"`);
 		}
-		this.njkAsset.add(assetType, pathMatches[1], context.ctx);
+		const filePath = (fileDir === '.' ? '' : fileDir+'/')
+			+fileNameDotSplit.slice(0, -1).join('.')
+			+'.'+assetType;
+		this.njkAsset.add(filePath, context.ctx);
 	}
 }
 
@@ -255,6 +253,7 @@ function ComponentAssetsCssPlaceHolder() {
 	this.parse = parseNunjucksTag;
 	// noinspection JSUnusedLocalSymbols
 	this.bx_component_assets_css = function(context, args) {
+		// noinspection JSUnresolvedFunction
 		return new nunjucks.runtime.SafeString('<!-- @bx_component_assets_css -->');
 	}
 }
@@ -267,6 +266,7 @@ function ComponentAssetsJsPlaceHolder() {
 	this.parse = parseNunjucksTag;
 	// noinspection JSUnusedLocalSymbols
 	this.bx_component_assets_js = function(context, args) {
+		// noinspection JSUnresolvedFunction
 		return new nunjucks.runtime.SafeString('<!-- @bx_component_assets_js -->');
 	}
 }
@@ -334,7 +334,7 @@ function injectData(conf, cssBundleFiles) {
 }
 
 module.exports.ComponentTag = ComponentTag;
-module.exports.ComponentsAssets = ComponentsAssets;
+module.exports.AssetStorage = AssetStorage;
 module.exports.ComponentAssetsCssPlaceHolder = ComponentAssetsCssPlaceHolder;
 module.exports.ComponentAssetsJsPlaceHolder = ComponentAssetsJsPlaceHolder;
 module.exports.AddAsset = AddAsset;
